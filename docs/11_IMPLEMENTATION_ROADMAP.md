@@ -1,0 +1,83 @@
+# 11 · 구현 로드맵 (수직 슬라이스)
+
+해커톤은 "완성도 높은 일부"가 "미완성 전체"를 이깁니다. 그래서 **수평**(모든 테이블 → 모든 API → 모든 AI)이 아니라 **수직 슬라이스**(시나리오 하나를 끝까지)로 갑니다.
+
+## 수평 vs 수직
+
+```mermaid
+flowchart LR
+    subgraph H["수평 (지양)"]
+        H1[모든 모델] --> H2[모든 API] --> H3[모든 AI]
+        H3 -.->|마지막에야 동작| HD[데모 가능]
+    end
+    subgraph V["수직 (지향)"]
+        V1[슬라이스1: 한 시나리오 끝까지] --> VD[즉시 데모 가능]
+        V1 --> V2[슬라이스2: 의도 확장]
+        V2 --> V3[슬라이스3: ...]
+    end
+```
+
+## 슬라이스 1 — 핵심 루프 1바퀴 (데모 가능 최소)
+
+[01_PRODUCT_CONTEXT](01_PRODUCT_CONTEXT.md)의 MVP 시나리오를 **`InsuranceIntent` 하나로** 끝까지 관통.
+
+```
+Monitoring → (mock 신호: 혈압상승) → SignalDetected → InsuranceIntent
+→ GeneratePlan → RiskCheck → NeedApproval → UserApproval(승인)
+→ ExecuteAction(mock 청구서류) → VerifyResult → UpdateMemory → Monitoring
+```
+
+구현 순서:
+1. 프로젝트 스캐폴드 + `/health`
+2. DB 연결 + 핵심 모델 (Customer, Health*, Insurance*, AgentSession, ActionProposal)
+3. mock 시드 데이터 1명 (김영자, 68세)
+4. 상태머신 골격 (전이 + 가드)
+5. `AgentReasoner` 포트 + **Codex 어댑터** (read-only sandbox)
+6. MCP 읽기 도구: `get_health_data`, `get_insurance_summary`, `get_customer_memory`
+7. Orchestrator: 신호 → 의도추론 → 계획 → RiskCheck
+8. Policy Engine + Executor (mock 청구서류 핸들러)
+9. API: 세션 생성, 신호 주입, 세션 조회, proposal 승인
+10. 결과 화면용 이벤트 타임라인
+
+**완료 기준**: 위 한 바퀴가 실제로 돌고, 프론트에서 알림→승인→결과 1장이 보임.
+
+## 슬라이스 2 — 의도 확장
+
+- 나머지 intent 추가: HealthCare, AssetDefense, InvestmentAdjust, LifePlan
+- `get_portfolio_summary`, `get_loan_status`, `get_population_stat` 도구
+- 다중 액션 카드 (시나리오의 4개 제안)
+
+## 슬라이스 3 — 명확화 & 개인화
+
+- `IntentUnknown → ClarifyUser` 대화 분기
+- `PreferenceUpdate` (자연어로 성향 변경 → 장기 메모리)
+- 장기 메모리를 계획 생성에 반영 (개인화 입증)
+
+## 슬라이스 4 — 자동/수정 분기
+
+- `RiskCheck → AutoExecutable` (부작용 없는 액션 자동)
+- `UserApproval → RevisePlan` 수정 루프
+- 병렬 의도 서브상태 (ACTIVE/DEFERRED/PENDING)
+
+## 슬라이스 5 — 고도화 (시간 여유 시)
+
+- 능동 모니터링: 스케줄러/이벤트 큐 (Redis + RQ)
+- 진행 상황 스트리밍 (SSE)
+- 규정 검색 RAG (벡터)
+- 실제 통계 데이터셋 연동 (KOSIS/KIDI/KNHANES)
+
+## 우선순위 원칙
+
+| 우선 | 이유 |
+|---|---|
+| 슬라이스 1 완성 | 데모 영상(가점 5점) + MVP 동작(20점)의 최소 단위 |
+| Capability 보안 가시화 | 평가 2.4/5.5 직결, 구현 비용 낮음 |
+| 통계 앵커링 | 평가 3.5/5.5, 차별성 |
+| i18n/스트리밍/RAG | 나중 (구조만 대비) |
+
+## 비기능 항목 (각 슬라이스에 포함)
+
+- 상태 전이·도구 스코핑 단위 테스트
+- capability 회귀 테스트 (실행 도구 부재 확인)
+- 구조화 로깅 (`request_id`, `customer_id`, `session_id`, `state`)
+- mock 우선 (외부 API 없이 전 구간 동작)

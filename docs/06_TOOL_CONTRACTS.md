@@ -1,0 +1,131 @@
+# 06 · 도구 계약 (Tool Contracts)
+
+에이전트에 노출하는 도구를 정의합니다. **핵심 불변식: 에이전트 도구는 읽기·분석·제안만 가능하고, 실행 권한은 없습니다.**
+
+## Capability 경계
+
+```mermaid
+flowchart LR
+    subgraph Agent["에이전트가 가진 도구 (읽기/분석/제안만)"]
+        T1[get_customer_profile]
+        T2[get_health_data]
+        T3[get_portfolio_summary]
+        T4[get_insurance_summary]
+        T5[get_loan_status]
+        T6[get_population_stat]
+        T7[search_policy_documents]
+        T8[get_customer_memory]
+    end
+    subgraph Forbidden["에이전트에 존재하지 않는 것"]
+        X1[book_hospital ✗]
+        X2[submit_claim ✗]
+        X3[transfer_money ✗]
+        X4[change_portfolio ✗]
+    end
+    Agent --> PROP[ActionProposal 생성]
+    PROP --> EXEC[Executor만 실제 실행]
+```
+
+실행 동사(`book_*`, `submit_*`, `transfer_*`, `change_*`)는 **도구 목록에 아예 없습니다.** 에이전트는 "병원 예약하자"는 **제안(ActionProposal)** 만 만들 수 있고, 실제 실행은 [07_ACTION_EXECUTION.md](07_ACTION_EXECUTION.md)의 Executor가 담당합니다.
+
+## 노출 메커니즘 (Codex SDK 기준)
+
+Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP를 지원**합니다. 따라서:
+
+| 데이터 분류 | 노출 방식 | 샌드박스 |
+|---|---|---|
+| ① 고객 개인 (동적) | **MCP 읽기 도구 서버** (우리 백엔드가 제공) | 읽기 전용 도구 |
+| ② 통계/기준 | **MCP 읽기 도구** (파라미터 쿼리) | 읽기 전용 도구 |
+| ③ 규정·약관 (정적) | **read-only 워크스페이스 파일** | `Sandbox.read_only` |
+
+> 에이전트 thread는 항상 `Sandbox.read_only`로 시작합니다. 워크스페이스에는 **현재 고객의 데이터 스냅샷 + 규정 파일만** 둡니다. 다른 고객 데이터는 워크스페이스에 두지 않습니다 (격리). 자세히는 [CODEX_ADAPTER.md](CODEX_ADAPTER.md).
+
+## 도구 목록 (① 고객 개인)
+
+모든 고객 도구는 **`customer_id`로 스코핑**됩니다. `get_all_*` 같은 광범위 도구는 금지.
+
+### get_customer_profile
+```
+입력:  { customer_id: str }
+출력:  { name, age_band, locale }
+용도:  기본 컨텍스트
+```
+
+### get_health_data
+```
+입력:  { customer_id: str, metric?: str, since?: date }
+출력:  { records: [{ source, metric, value, measured_at }], events: [{ kind, severity, detected_at }] }
+용도:  건강 상태·이벤트 확인
+주의:  consent 없는 데이터는 반환하지 않음 (10 참고)
+```
+
+### get_portfolio_summary
+```
+입력:  { customer_id: str }
+출력:  { total_value, allocation: [{ asset_type, risk_grade, weight }], high_risk_weight }
+용도:  자산 배분·위험도 분석
+```
+
+### get_insurance_summary
+```
+입력:  { customer_id: str }
+출력:  { policies: [{ type, coverages: [{ coverage_type, limit_amount, active }] }], gaps_hint }
+용도:  보장 범위·공백 분석
+```
+
+### get_loan_status
+```
+입력:  { customer_id: str }
+출력:  { loans: [{ balance, next_due_date, monthly_payment }], cashflow_risk_window }
+용도:  현금흐름 리스크 계산
+```
+
+### get_customer_memory
+```
+입력:  { customer_id: str }
+출력:  { risk_preference, hospital_preference, investment_style, constraints }
+용도:  개인화 (계획 생성 시 반영) — 08 참고
+```
+
+## 도구 목록 (② 통계/기준)
+
+### get_population_stat
+```
+입력:  { age_band: str, metric: str }
+출력:  { value, source, as_of }
+용도:  "68세 평균 자산 대비…" 같은 근거 있는 비교
+예:    get_population_stat(age_band="65-69", metric="avg_assets")
+출처:  KOSIS, 가계금융복지조사, 보험개발원(KIDI), KNHANES (공개 데이터)
+```
+
+> 통계는 RAG가 아니라 **정형 쿼리**입니다 ([02](02_SYSTEM_ARCHITECTURE.md) 데이터 3분류 참고). 방대한 통계를 통째로 프롬프트에 넣지 않습니다.
+
+## 도구 목록 (③ 규정·약관 — 비정형)
+
+### search_policy_documents
+```
+입력:  { query: str, doc_type?: "policy"|"rule"|"product" }
+출력:  { excerpts: [{ heading, text, source }] }
+용도:  약관/내규 검색
+MVP:   read-only 워크스페이스 파일 키워드 검색
+나중:  벡터 RAG로 고도화
+```
+
+## 출력 도구 (제안 기록)
+
+### propose_action (개념)
+LLM이 실제로 호출하는 것은 도구라기보다 **구조화 출력**입니다 ([04](04_AGENT_RUNTIME.md) `Plan`/`ActionProposal`). 에이전트는 `ActionProposal`을 생성할 뿐 실행하지 않습니다. Orchestrator가 이를 받아 Policy/Executor로 보냅니다.
+
+## 도구 스코핑·검증 규칙
+
+- 모든 입력은 Pydantic으로 검증한다.
+- 모든 고객 도구는 인증된 사용자·고객·세션으로 스코핑한다.
+- 광범위/무제한 도구(`get_all_customer_data`, 임의 파일시스템 쓰기)는 노출하지 않는다.
+- 도구는 간결한 결과를 반환한다 (큰 문서 전체 반환 금지 — 발췌·요약).
+- 모든 도구 호출은 `AgentEvent`로 로깅한다 ([05](05_DATA_MODEL.md)).
+
+## 테스트 포인트
+
+- 입력 검증·스코핑 (다른 customer_id 접근 차단)
+- consent 없는 건강 데이터 미반환
+- 실행 도구가 에이전트 표면에 노출되지 않음 (capability 회귀 테스트)
