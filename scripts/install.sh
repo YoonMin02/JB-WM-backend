@@ -25,6 +25,7 @@ uv pip install \
     "pydantic-settings>=2.7" \
     "python-dotenv>=1.0" \
     "httpx>=0.28" \
+    "psycopg2-binary>=2.9" \
     "pytest>=8" \
     "pytest-asyncio>=0.24" \
     "ruff>=0.8" \
