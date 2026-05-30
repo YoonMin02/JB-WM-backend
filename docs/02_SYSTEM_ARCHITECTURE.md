@@ -2,6 +2,8 @@
 
 백엔드는 **결정론적 통제(상태머신·정책·실행)** 와 **비결정론적 추론(LLM)** 을 명확히 분리한 구조입니다. LLM은 판단·계획하고, 코드는 상태·권한·실행을 보장합니다.
 
+> 제품 개념(건강·자산 통합 회복탄력성, 능동성 비대칭, 이중 capability 경계)은 [01_PRODUCT_CONTEXT](01_PRODUCT_CONTEXT.md)가 정본. 추론기는 건강·자산을 **하나의 상태로 통합 판단**하고, 진입 트리거는 **자산 변동 선제 감지(메인)** + 건강 제출 + 자연어입니다.
+
 ## 전체 구조
 
 ```mermaid
@@ -82,12 +84,12 @@ sequenceDiagram
     participant EX as Executor
     participant MEM as Memory
 
-    SRC->>ORCH: 신호(데이터 이벤트 / 자연어)
+    SRC->>ORCH: 신호(자산 변동 선제 / 건강 제출 / 자연어)
     ORCH->>FSM: Monitoring → SignalDetected
-    ORCH->>R: 의도 추론 (read-only 도구 사용)
+    ORCH->>R: 의도 추론 (read-only 도구 — 건강·자산 통합)
     R-->>ORCH: Intent + 근거
     ORCH->>FSM: → *Intent → GeneratePlan
-    ORCH->>R: 계획 생성 (+장기 메모리 반영)
+    ORCH->>R: 계획 생성 (+장기 메모리·지불의향 반영)
     R-->>ORCH: Plan(ActionProposal[])
     ORCH->>POL: RiskCheck
     alt 외부 효과 있음
@@ -124,14 +126,18 @@ sequenceDiagram
 
 비정형 텍스트(약관 PDF, 내규)가 방대해 컨텍스트에 다 넣을 수 없을 때, 검색 인덱스에서 관련 조각만 꺼내 LLM에 주는 기법. **MVP는 파일 직접 읽기로 충분**하고, 코퍼스가 커지면 RAG로 고도화합니다.
 
-## Capability 기반 안전 모델
+## 이중 Capability 안전 모델
 
-에이전트에게 실행 권한을 **주지 않는** 것이 핵심입니다. 자세히는 [07](07_ACTION_EXECUTION.md), [10](10_SECURITY_PRIVACY.md).
+두 개의 권한 경계로 안전을 *구조적으로* 보장합니다. 자세히는 [07](07_ACTION_EXECUTION.md), [10](10_SECURITY_PRIVACY.md).
 
+**① 실행 경계** — 에이전트에게 실행 권한을 **주지 않음**
 - 에이전트의 도구 = **읽기·분석·제안만**
 - Codex 샌드박스 = `read_only`, 동적 도구 = **읽기 전용 MCP**
 - 실행 권한(자격증명·외부 API)은 **Executor에만** 존재
 - 승인 이벤트는 LLM을 거치지 않고 Executor로 직행
+
+**② 의료 경계** — 에이전트/회사는 **의료 권고를 생성하지 않음**
+- 재무 대비 + 통계 참고정보(출처) + 전문가 연결만. 의료 결정권은 고객·주치의.
 
 ```mermaid
 flowchart LR

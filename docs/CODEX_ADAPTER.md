@@ -102,9 +102,11 @@ Codex SDK는 커스텀 함수 등록 API가 없고 **워크스페이스 + MCP** 
 
 | 데이터 | 노출 |
 |---|---|
-| ① 고객 개인 (동적) | 백엔드가 띄운 **MCP 읽기 서버** (codex `config`로 등록) |
-| ② 통계 | MCP 읽기 도구 |
+| ① 고객 개인 (동적) | 백엔드가 띄운 **MCP 읽기 서버** (codex `config`로 등록). 건강·포트폴리오·보험·대출·**자산 이벤트**·메모리(지불의향 포함) |
+| ② 통계 | MCP 읽기 도구 `get_population_stat` (또는 워크스페이스에 통계 스냅샷 파일) |
 | ③ 규정·약관 | `cwd` 워크스페이스의 **읽기 전용 파일** |
+
+> 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. MVP 어댑터는 현재 고객의 `profile/health/insurance/loans/memory(.json)`를 materialize하며, 슬라이스 2에서 **자산 이벤트·통계 스냅샷**을 추가합니다. 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
 
 > SDK 런타임은 MCP를 지원합니다 (`McpToolCall*` 알림, `mcp_server_config`). 동적 데이터·통계 도구는 우리 백엔드 MCP 서버로 노출하고, **읽기 전용**으로 제한합니다. 실행 도구는 MCP에도 두지 않습니다.
 

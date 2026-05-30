@@ -17,9 +17,9 @@ flowchart LR
     end
 ```
 
-## 슬라이스 1 — 핵심 루프 1바퀴 (데모 가능 최소)
+## 슬라이스 1 — 핵심 루프 1바퀴 ✅ (완료)
 
-[01_PRODUCT_CONTEXT](01_PRODUCT_CONTEXT.md)의 MVP 시나리오를 **`InsuranceIntent` 하나로** 끝까지 관통.
+**`InsuranceIntent` 하나로** 끝까지 관통 (건강 트리거). StubReasoner로 종단 동작·테스트 완료.
 
 ```
 Monitoring → (mock 신호: 혈압상승) → SignalDetected → InsuranceIntent
@@ -41,17 +41,20 @@ Monitoring → (mock 신호: 혈압상승) → SignalDetected → InsuranceInten
 
 **완료 기준**: 위 한 바퀴가 실제로 돌고, 프론트에서 알림→승인→결과 1장이 보임.
 
-## 슬라이스 2 — 의도 확장
+## 슬라이스 2 — 자산 트리거 + 통합 회복탄력성 (다음 핵심)
 
-- 나머지 intent 추가: HealthCare, AssetDefense, InvestmentAdjust, LifePlan
-- `get_portfolio_summary`, `get_loan_status`, `get_population_stat` 도구
-- 다중 액션 카드 (시나리오의 4개 제안)
+통합 개념의 **메인 데모**. 자산 변동 선제 감지로 건강·자산을 묶어 판단.
+- `AssetEvent` + 자산 트리거(`portfolio_loss`,`repayment_pressure`) 선제 감지(mock)
+- 의도 확장: AssetDefense, InvestmentAdjust, HealthCare(의료비 대비), LifePlan
+- `get_portfolio_summary`, `get_loan_status`, **`get_population_stat`**(통계 시드) 도구
+- **지불의향(`medical_willingness`)** 을 계획 생성에 반영 (개인화)
+- 다중 액션 카드 (현금흐름·보장·투자 — 성향 따라 일부 제외)
 
-## 슬라이스 3 — 명확화 & 개인화
+## 슬라이스 3 — 명확화 & 개인화 심화
 
 - `IntentUnknown → ClarifyUser` 대화 분기
-- `PreferenceUpdate` (자연어로 성향 변경 → 장기 메모리)
-- 장기 메모리를 계획 생성에 반영 (개인화 입증)
+- `PreferenceUpdate` (자연어로 지불의향·성향 변경 → 장기 메모리)
+- 장기 메모리(지불의향 포함)를 계획에 반영 (개인화 입증)
 
 ## 슬라이스 4 — 자동/수정 분기
 
@@ -61,10 +64,10 @@ Monitoring → (mock 신호: 혈압상승) → SignalDetected → InsuranceInten
 
 ## 슬라이스 5 — 고도화 (시간 여유 시)
 
-- 능동 모니터링: 스케줄러/이벤트 큐 (Redis + RQ)
+- 능동 모니터링: 스케줄러/이벤트 큐 (Redis + RQ) — 자산 트리거 실시간화
 - 진행 상황 스트리밍 (SSE)
 - 규정 검색 RAG (벡터)
-- 실제 통계 데이터셋 연동 (KOSIS/KIDI/KNHANES)
+- 실시간 통계 API 연동 ([STATS_SOURCES](STATS_SOURCES.md): KOSIS/ECOS/HIRA)
 
 ## 우선순위 원칙
 
