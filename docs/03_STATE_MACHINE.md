@@ -2,6 +2,11 @@
 
 이 문서가 서비스 로직의 **본체**입니다. LLM은 판단·계획하지만, **어떤 전이가 허용되는지는 코드가 강제**합니다. 금융/보험/의료는 결정론적 흐름이 필요하기 때문입니다.
 
+> **Intent 상태는 도메인별 전문 에이전트가 아닙니다.** JB WM은 고객의 건강·보험·현금흐름·자산·투자·생애계획을 하나의
+> 회복탄력성 상태로 보는 **통합 WM 에이전트**입니다. `InsuranceIntent`,
+> `AssetDefenseIntent` 같은 상태는 하나의 통합 agent가 모든 고객 데이터를 함께 본 뒤,
+> 이번 턴에서 가장 우선되는 고객 니즈와 승인 게이트를 표현하는 라벨입니다.
+
 ## 왜 상태머신인가
 
 LLM만으로는 다음이 보장되지 않습니다:
@@ -19,11 +24,12 @@ LLM만으로는 다음이 보장되지 않습니다:
 stateDiagram-v2
     [*] --> Monitoring
 
-    Monitoring --> SignalDetected: 데이터 이벤트 감지
+    Monitoring --> SignalDetected: 자산 변동 선제 감지
+    Monitoring --> SignalDetected: 건강 이벤트 제출
     Monitoring --> SignalDetected: 고객 자연어 입력
 
     SignalDetected --> IntentUnknown: 의도 불명확
-    SignalDetected --> HealthCareIntent: 의료 대응 필요
+    SignalDetected --> HealthCareIntent: 의료비 대비 필요
     SignalDetected --> InsuranceIntent: 보험 점검/청구 필요
     SignalDetected --> AssetDefenseIntent: 현금흐름/자산 방어 필요
     SignalDetected --> InvestmentAdjustIntent: 투자전략 조정 필요
@@ -66,25 +72,44 @@ stateDiagram-v2
     Failed --> UpdateMemory
 ```
 
-## 진입 트리거 2종
+## 진입 트리거 (소스별)
 
 | 트리거 | 예시 | 처리 |
 |---|---|---|
-| **데이터/이벤트** | 건강검진 업로드, 소비 급증, 대출 만기 접근, 보험 만기 도달 | 시스템 감지 → `SignalDetected` |
-| **고객 자연어** | "투자는 당분간 보수적으로 갈래" | 발화 수신 → `SignalDetected` |
+| **자산 — 시스템 선제** | 포트폴리오 손실 급등, 소비 급증, 상환 압박 (회사 보유 데이터) | **실시간 자동 감지** → `SignalDetected` (`AssetEvent`) |
+| **자산 — 고객 언급** | "다음 달 큰 지출 예정이야" | 자연어 → `SignalDetected` (계획·승인으로 이어질 수 있음) |
+| **건강 — 온디바이스 소프트 신호** | 동의 동기화된 혈압·수면 추세 악화 | 감지 → `SignalDetected` (`HealthEvent`, **준선제** · 주의 환기) |
+| **건강 — 객관 문서 제출** | **진단서·정기검진 내역** 출력·제출 | 제출 → `SignalDetected` (`MedicalDocument`, **평가 앵커**) |
+| **고객 자연어 (요청/성향)** | "내 보험 봐줘", "투자는 보수적으로" | 발화 → `SignalDetected` |
 
-> 자연어 입력은 금융 액션 없이 **성향/제약만 바꿀 수 있습니다** (`PreferenceUpdate` → `UpdateMemory`). 이 경로가 개인화의 한 축입니다.
+> **능동성의 비대칭**: 자산은 회사 데이터로 실시간 선제 감지가 가능하고, 건강은 고객이 객관 문서를 제출하는 시점이 트리거. 데모의 주된 *선제* 능동성은 자산 트리거. 동시에 고객 요청·언급 처리도 1급입니다.
 
-MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이트: 건강검진 결과 입력됨" 버튼). 실제 이벤트 큐는 나중에.
+### 자연어 입력은 1급 트리거다
+
+자연어 입력은 다른 신호와 동일하게 `SignalDetected`로 들어가며, **결과는 발화 내용에 따라 갈립니다**:
+- 액션이 필요하면(예: "큰 지출 예정" → 포트폴리오/현금흐름 조정) → `GeneratePlan → RiskCheck → 승인` (당연히 **고객 승인 필요**).
+- 발화가 **순전히 성향/지불의향 변경**일 때만(예: "투자 보수적으로") → `PreferenceUpdate → UpdateMemory` (액션 없음).
+
+즉 `PreferenceUpdate`는 자연어의 *한 갈래*일 뿐, 자연어가 성향 변경만 한다는 뜻이 아닙니다.
+
+### 건강은 객관 문서로 앵커 (주관과 분리)
+
+같은 질병도 개인의 인지·성격·체감에 따라 진술이 크게 달라질 수 있습니다. **그 주관이 실제 질병 크기를 왜곡하면 안 되므로**, 질병·리스크 *평가*는 **고객이 제출한 객관 문서(진단서·검진 내역) + 통계**에 앵커합니다. 주관(지불의향·선호)은 *대응의 개인화*에만 반영하고 질병 평가에는 쓰지 않습니다 ([10](10_SECURITY_PRIVACY.md)).
+
+MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이트: 포트폴리오 손실 발생", "진단서 제출" 버튼). 실제 이벤트 큐는 나중에.
 
 ## 상태 정의
+
+모든 `*Intent` 상태에서도 agent는 특정 도메인만 보지 않습니다. 상태 이름은 주된 니즈를
+표시할 뿐이며, 계획 생성은 항상 건강·보험·현금흐름·자산·투자전략·장기 메모리를 함께
+검토해야 합니다.
 
 | 상태 | 고객의 숨은 의도 | 에이전트 판단 | 가능한 액션 |
 |---|---|---|---|
 | `Monitoring` | (없음) | 데이터 지속 관찰, 이상 징후 탐지 | 동기화, 신호 탐지 |
 | `SignalDetected` | "뭔가 관리 필요할 수도" | 이벤트 분류 | 의도 분류 |
 | `IntentUnknown` | 불명확 | 어느 영역 문제인지 모름 | 질문 |
-| `HealthCareIntent` | "검진/진료 받아야 하나?" | 추가 확인 필요성 | 병원 예약 제안, 검진 추천 |
+| `HealthCareIntent` | "의료비를 어떻게 대비하지?" | 지불의향·자산 고려한 **재무 대비** (의료 권고 아님) | 비용 대비 플랜, 통계 참고정보, 전문가 연결 제안 |
 | `InsuranceIntent` | "내 보험으로 커버되나?" | 보장 범위 ↔ 건강 이벤트 매칭 | 보장 분석, 청구 가능성 안내 |
 | `AssetDefenseIntent` | "당장 현금흐름 괜찮나?" | 의료비/소득/대출 리스크 계산 | 비상자금, 지출/상환 조정 |
 | `InvestmentAdjustIntent` | "위험도 낮춰야 하나?" | 건강/나이/자산 변동에 따른 재평가 | 리밸런싱 제안 |
@@ -104,6 +129,11 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 
 ## 전이 규칙 (요약)
 
+LLM이 관여하는 핵심 지점은 상태머신 전체가 아니라, **상태 전이를 위한 판단 입력**입니다.
+구체적으로 LLM은 `SignalDetected`에서 intent를 추론하고, `GeneratePlan`에서
+구조화된 `Plan(ActionProposal[])`을 생성합니다. 코드가 그 결과를 검증해 실제 전이를
+적용합니다.
+
 | From | To | 트리거 | 소유 |
 |---|---|---|---|
 | Monitoring | SignalDetected | 이벤트 또는 자연어 입력 | Orchestrator |
@@ -119,6 +149,19 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 | VerifyResult / NoAction / PreferenceUpdate / Failed | UpdateMemory | — | 상태머신 |
 | UpdateMemory | Monitoring | 루프 종료 | 상태머신 |
 
+### LLM 관여 지점
+
+| 단계 | LLM 역할 | 코드 역할 |
+|---|---|---|
+| `SignalDetected` | 고객 신호와 최신 컨텍스트를 보고 `IntentInference` 생성 | 허용된 intent인지 검증하고 해당 상태로 전이 |
+| `IntentUnknown` | 명확화 질문 초안 생성 | `ClarifyUser` 상태로 전이하고 질문을 고객에게 노출 |
+| `GeneratePlan` | 통합 컨텍스트와 메모리를 바탕으로 `Plan(ActionProposal[])` 생성 | 제안을 DB에 저장하고 `RiskCheck`로 전이 |
+| `RevisePlan` | 고객 수정 요청을 반영해 계획 재생성 | 기존 proposal 상태 변경, 새 proposal 저장 |
+| `UpdateMemory` 일부 | 발화에서 선호·제약·지불의향 후보 추출 | 실제 장기 메모리 반영 여부를 정책/검증 후 저장 |
+
+LLM은 `RiskCheck`, `NeedApproval`, `UserApproval`, `ExecuteAction`, `VerifyResult`의
+권한을 갖지 않습니다. 이 단계들은 Policy Engine, 고객, Executor가 소유합니다.
+
 ## 가드 조건
 
 - 유효한 고객 컨텍스트 없이는 의도 추론을 시작할 수 없다.
@@ -129,7 +172,10 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 
 ## 병렬 의도 (확장)
 
-실제로는 여러 의도가 동시에 활성일 수 있습니다 (보험 진행 중 + 투자 보류). MVP는 단일 의도 흐름으로 시작하고, 의도별 서브상태(`ACTIVE` / `DEFERRED` / `PENDING` / `APPROVED`)를 두는 계층적 상태머신으로 확장합니다.
+실제로는 여러 의도가 동시에 활성일 수 있습니다 (보험 진행 중 + 투자 보류). 이는 여러
+전문 agent를 둔다는 뜻이 아니라, 하나의 통합 agent 안에서 여러 니즈의 처리 상태를
+동시에 추적한다는 뜻입니다. MVP는 단일 주 의도 흐름으로 시작하고, 의도별 서브상태
+(`ACTIVE` / `DEFERRED` / `PENDING` / `APPROVED`)를 두는 계층적 상태머신으로 확장합니다.
 
 ```
 InsuranceIntent     = ACTIVE

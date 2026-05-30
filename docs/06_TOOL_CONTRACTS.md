@@ -66,6 +66,13 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 용도:  자산 배분·위험도 분석
 ```
 
+### get_asset_events
+```
+입력:  { customer_id: str, since?: date }
+출력:  { events: [{ kind, severity, detected_at }] }   # portfolio_loss, spending_spike, repayment_pressure ...
+용도:  선제 감지된 자산 변동 확인 (능동성 메인 트리거 — 05 AssetEvent)
+```
+
 ### get_insurance_summary
 ```
 입력:  { customer_id: str }
@@ -83,9 +90,11 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 ### get_customer_memory
 ```
 입력:  { customer_id: str }
-출력:  { risk_preference, hospital_preference, investment_style, constraints }
-용도:  개인화 (계획 생성 시 반영) — 08 참고
+출력:  { medical_willingness, risk_preference, hospital_preference, investment_style, constraints }
+용도:  개인화 (계획 생성 시 반영, 지불의향 포함) — 08 참고
 ```
+
+> **의료 경계**: 어떤 도구도 의료 권고를 생성하지 않습니다. 건강·통계 도구는 *참고 정보*만 제공하며, 출력은 재무 대비·통계 인용·전문가 연결로 한정됩니다 ([10](10_SECURITY_PRIVACY.md)).
 
 ## 도구 목록 (② 통계/기준)
 

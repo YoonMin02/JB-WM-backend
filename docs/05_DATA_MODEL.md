@@ -11,6 +11,8 @@ erDiagram
     Customer ||--o{ LoanAccount : has
     Customer ||--o{ HealthRecord : has
     Customer ||--o{ HealthEvent : has
+    Customer ||--o{ MedicalDocument : submits
+    Customer ||--o{ AssetEvent : has
     Customer ||--|| CustomerMemory : has
     Customer ||--o{ AgentSession : has
     PortfolioAccount ||--o{ Holding : contains
@@ -57,6 +59,20 @@ erDiagram
 | detected_at | datetime | |
 | raw_ref | json | 근거 데이터 참조 |
 
+### MedicalDocument (고객 제출 객관 문서) ★
+질병·리스크 *평가의 앵커*. 고객의 주관 진술이 아니라 **진단서·정기검진 내역** 같은 객관 문서로 판단합니다 ([01](01_PRODUCT_CONTEXT.md), [10](10_SECURITY_PRIVACY.md)).
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| customer_id | uuid | FK |
+| doc_type | str | `diagnosis`(진단서) / `checkup`(검진내역) / `prescription`(처방) |
+| issued_at | date | 발급일 |
+| summary | json | 구조화 요약 (질병코드·수치 등) |
+| file_ref | str | 원본 파일 참조 |
+| consent_id | uuid | 동의 근거 |
+
+> 주관(인지·성격·지불의향)은 `CustomerMemory`에, **객관 의료 사실은 `MedicalDocument`/`HealthRecord`에** 분리 저장. 질병 평가는 객관 데이터 + 통계, 대응 개인화는 주관.
+
 ### PortfolioAccount / Holding
 | Holding 필드 | 타입 | 설명 |
 |---|---|---|
@@ -86,6 +102,19 @@ erDiagram
 | next_due_date | date | 다음 상환일 (현금흐름 리스크) |
 | monthly_payment | decimal | 월 상환액 |
 
+### AssetEvent (감지된 자산 신호 — 선제 트리거)
+건강과 대칭. 회사 보유 데이터로 **실시간 감지**되는 자산 변동이 능동성의 메인 트리거입니다 ([01](01_PRODUCT_CONTEXT.md), [03](03_STATE_MACHINE.md)).
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| customer_id | uuid | FK |
+| kind | str | `spending_spike`,`portfolio_loss`,`income_drop`,`repayment_pressure` |
+| severity | str | `low`/`mid`/`high` |
+| detected_at | datetime | |
+| raw_ref | json | 근거 데이터 참조 |
+
+> 건강 이벤트는 고객 제출(`source=self_reported`/진단), 자산 이벤트는 회사 보유 데이터 자동 감지. 둘 다 `SignalDetected`로 들어가 통합 회복탄력성 판단의 입력이 됩니다.
+
 > ① 데이터는 **MCP 읽기 도구**로만 에이전트에 노출됩니다. 직접 prompt 주입 금지. 어댑터 외부에서 접근 시 도구를 거칩니다.
 
 ## 메모리 & 개인화 ([08](08_MEMORY.md))
@@ -94,8 +123,9 @@ erDiagram
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | customer_id | uuid | PK/FK |
+| **medical_willingness** | str | **지불의향** `conservative`/`moderate`/`aggressive` — 1급 개인화 변수 ([08](08_MEMORY.md)) |
 | risk_preference | str | `low`/`mid`/`high` |
-| hospital_preference | str | 예: "서울아산병원" |
+| hospital_preference | str | 예: "전북대학교병원" |
 | investment_style | str | `stable`/`balanced`/`aggressive` |
 | constraints | json | 예: `{"투자": "보류"}` |
 | updated_at | datetime | |
@@ -189,3 +219,29 @@ per-customer가 아니라 참조 데이터입니다. 별도 테이블 또는 읽
 ## 비정형 규정 (분류 ③)
 
 DB가 아니라 파일로 둡니다 (read-only 워크스페이스). 메타데이터만 DB에 둘 수 있습니다. RAG는 나중 ([02](02_SYSTEM_ARCHITECTURE.md) 참고).
+
+## 건강 데이터 3계층 (역할 분리)
+
+온디바이스 API(HealthKit·삼성헬스)는 사라지지 않았습니다 — `HealthRecord`의 한 소스이며, **"제3자 자동수집"이 아니라 "고객이 동의한 본인 데이터 동기화"**라 규제상 허용됩니다. 계층별 역할:
+
+| 계층 | 엔티티 | 출처 | 역할 |
+|---|---|---|---|
+| 원시 측정 | `HealthRecord` (`source=device/checkup/self_reported`) | 온디바이스 동기화·검진 수치·직접 입력 | 측정값 보관 |
+| 소프트 신호 | `HealthEvent` (`bp_rising`,`sleep_decline`) | 측정에서 감지 | **주의 환기·트리거** (질병 확정 평가 아님) |
+| 객관 확정 문서 | `MedicalDocument` (진단서·검진내역) | 고객 제출 | **질병·리스크 평가의 앵커** |
+
+→ 소프트 신호는 "살펴볼까요?"를 띄우고, 진짜 평가는 객관 문서 + 통계가 합니다. 주관(인지·지불의향)은 평가가 아닌 *대응 개인화*에만 ([10](10_SECURITY_PRIVACY.md)).
+
+## 데이터 영속성 & 보유
+
+고객 프로필은 가입 시점에서 끝나지 않고 **누적**됩니다. 세 가지 성격:
+
+| 성격 | 대상 | 저장 방식 |
+|---|---|---|
+| **현재 상태** | Customer·Portfolio·Insurance·Loan·`CustomerMemory` 값 | 최신값 유지(갱신) + 변동 이력 |
+| **이력 (append-only)** | `Signal`·`HealthEvent`/`AssetEvent`·`MedicalDocument`·`Plan`·`ActionProposal`·`ActionExecution`·`AgentEvent` | 지우지 않음 → 감사·설명가능성 |
+| **개인화 (누적·진화)** | `CustomerMemory` (지불의향·성향·선호·제약) | 세션을 넘어 영속·학습 |
+
+이력(append-only)이 "왜 이 제안을 했는가"를 사후 추적 가능하게 하고, `CustomerMemory`의 영속이 "장기 에이전트"를 만듭니다.
+
+> **보유·파기 (규제)**: 영속은 **동의 범위·보유기간 내**에서만입니다. 개인정보보호법상 보유기간 만료·**동의 철회(잊힐 권리)** 시 파기해야 하며, 건강은 민감정보라 더 엄격합니다. MVP는 저장만 구현하되 이 원칙을 따릅니다 ([10](10_SECURITY_PRIVACY.md)).

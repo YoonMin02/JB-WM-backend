@@ -4,13 +4,34 @@
 
 > 원칙: 에이전트 루프·도구·상태는 우리가 영구히 소유한다. **어떤 LLM 공급자를 쓰는지는 어댑터 뒤의 교체 가능한 세부사항이다.**
 
+## 고객별 통합 에이전트
+
+JB WM의 기본 단위는 도메인별 agent가 아니라 **고객별 holistic WM agent**입니다.
+건강, 의료비, 보험, 현금흐름, 자산, 투자전략, 생애계획을 분리된 agent가 나눠 보는
+것이 아니라, 하나의 통합 agent가 매 turn 최신 고객 컨텍스트와 장기 메모리를 함께 봅니다.
+
+기본 운영 모델:
+
+```text
+Customer 1명
+  ├─ active holistic AgentSession 1개
+  │    └─ Codex thread 1개
+  ├─ CustomerMemory
+  ├─ Health / Insurance / Portfolio / Loans
+  └─ AgentMessage / AgentEvent
+```
+
+`InsuranceIntent`, `AssetDefenseIntent` 같은 intent는 전문 agent 라우팅 키가 아닙니다.
+하나의 통합 agent가 이번 turn에서 가장 우선되는 니즈와 상태 전이 경로를 표현하기 위한
+라벨입니다.
+
 ## LLM이 하는 일 vs 코드가 하는 일
 
 흔한 오해를 먼저 정리합니다. **계획·행동 판단은 LLM이 합니다** (에이전트의 두뇌). 다만 **권한·상태·실제 실행은 코드가** 가집니다.
 
 | LLM (에이전트 두뇌) — 능동 | 코드 (FSM + Policy + Executor) — 권한 |
 |---|---|
-| 상황 인식, 의도 추론 | 현재 상태의 단일 진실 |
+| 통합 상황 인식, 의도 추론 | 현재 상태의 단일 진실 |
 | **계획 생성** (무슨 액션을 할지) | 허용 전이 강제 |
 | **행동 판단** (어떤 도구를 부를지) | 고객 승인 여부 확인 |
 | 읽기·분석 도구 호출을 주도 | **되돌릴 수 없는 실제 실행의 방아쇠** |
@@ -57,13 +78,14 @@ class AgentReasoner(Protocol):
 async def handle_signal(self, session, signal):
     self.fsm.to(session, "SignalDetected")
 
-    intent = await self.reasoner.infer_intent(signal)
+    ctx = self.tools.build_latest_customer_context(session.customer_id)
+    intent = await self.reasoner.infer_intent(signal, ctx)
     if intent.is_unknown:
         return self.ask_user(session, intent.clarifying_question)  # ClarifyUser
 
     self.fsm.to(session, intent.state)            # *Intent
     memory = self.memory.long_term(session.customer_id)
-    plan = await self.reasoner.generate_plan(intent, memory)  # GeneratePlan
+    plan = await self.reasoner.generate_plan(intent, ctx, memory)  # GeneratePlan
 
     routing = self.policy.evaluate(plan)          # RiskCheck
     if routing.needs_approval:
@@ -73,14 +95,25 @@ async def handle_signal(self, session, signal):
 
 핵심: **Orchestrator는 reasoner 출력을 받아 FSM/Policy/Executor로 라우팅**합니다. reasoner는 절대 상태를 직접 바꾸거나 실행하지 않습니다.
 
+LLM이 상태머신에 들어가는 곳은 두 군데가 중심입니다.
+
+1. `SignalDetected`에서 `IntentInference`를 생성해 다음 상태 후보를 제안합니다.
+2. `GeneratePlan`에서 `Plan(ActionProposal[])`을 생성합니다.
+
+전이는 LLM이 직접 수행하지 않습니다. Orchestrator가 reasoner 출력이 허용된 상태인지
+검증하고, Policy Engine이 승인 필요 여부를 판단한 뒤, Executor만 실제 실행합니다.
+
 ## 추론 세션 ↔ 분석 세션
 
 | 백엔드 개념 | 추론 개념 |
 |---|---|
-| `agent_session.id` | 애플리케이션 워크플로우 식별자 |
-| `agent_session.agent_thread_id` | 추론 세션/thread 참조 (어댑터가 해석) |
+| `agent_session.id` | 고객별 active holistic agent session 식별자 |
+| `agent_session.agent_thread_id` | 해당 고객 agent의 Codex thread 참조 |
 
-`start_session()` 직후 세션 참조를 즉시 영속화하여, 프로세스가 재시작해도 재개·감사가 가능하게 합니다.
+기본은 고객 1명당 active holistic agent session 1개입니다. `start_session()` 직후
+Codex thread id를 즉시 영속화하여, 프로세스가 재시작해도 같은 고객 agent thread를
+재개할 수 있게 합니다. 별도 시뮬레이션, 감사 분리, thread rollover 같은 경우에만
+예외적으로 새 session/thread를 만듭니다.
 
 ## 구조화 출력
 

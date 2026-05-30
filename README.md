@@ -1,25 +1,25 @@
 # JB WM — Backend
 
-> **JB WM Agent** — 고객의 건강·자산·보험·대출 데이터를 **상시 관찰**하다가, 변화가 감지되면 고객의 **잠재 의도를 추론**하고, 계획을 세워 **고객 승인 후** 실제 액션까지 연결하는 **능동형 Life Event Agent**.
+> **JB WM Agent** — 고객의 **건강과 자산을 하나의 "회복탄력성(resilience)" 상태**로 보고, 변화가 생기면(자산 변동은 선제 감지, 건강은 고객 제출 시 재평가) 개인화된 판단으로 보험·자산·투자·의료비 대비를 **통합 제안**하고, **고객 승인 후** 실제 액션까지 연결하는 **능동형 lifelong WM 에이전트**.
 
 이 저장소는 백엔드(FastAPI)입니다. 워크플로우 상태, 데이터 접근, 권한 경계, 액션 실행, 그리고 LLM 추론(Codex SDK)을 담당합니다.
 
 JB금융그룹 해커톤 출품작 (Lifelong WM × Health).
 
+> 제품 개념의 정본은 [docs/01_PRODUCT_CONTEXT.md](docs/01_PRODUCT_CONTEXT.md)입니다.
+
 ---
 
 ## 한눈에 보는 제품
 
-기존 금융 서비스는 **고객이 직접** 해야 합니다.
+**건강과 자산은 분리된 두 영역이 아니라 하나입니다.** 건강 악화는 자산을 위협하고(의료비·소득), 자산 상태는 의료 대응의 적극성·선택지를 좌우합니다(양방향). 기존엔 이 얽힌 판단을 **고객이 직접** 해야 했습니다.
 
-```
-건강검진 결과 확인 → 병원 갈지 판단 → 보험 보장 범위 찾기
-→ 의료비가 자산계획에 주는 영향 계산 → 투자 비중 고민 → 상담사 문의
-```
+JB WM Agent는:
+- **자산 변동을 선제 감지**해(회사 보유 데이터) 의료비 대비·현금흐름 위험을 먼저 경고하고,
+- **건강 이벤트는 고객 제출 시** 자산·지불의향을 함께 고려해 재무·보장 대비를 제안하며,
+- **민감 액션은 반드시 고객 승인**을 받고, **의료 권고는 생성하지 않습니다**(재무·통계참고·연결만).
 
-JB WM Agent는 이 과정을 **에이전트가 대신** 수행합니다. 고객(주 타깃: 고령층)은 데이터를 제공하기만 하고, 나머지는 에이전트가 관찰·판단·제안하며, **민감한 행동은 반드시 고객 승인**을 받습니다.
-
-> 핵심 차별점: **(1) 능동성** — 고객이 요청하지 않아도 먼저 감지하고 판단. **(2) 건강↔금융 연계** — 건강 이벤트를 보험·자산·투자 액션으로 연결. **(3) 의도=상태** — 고객의 잠재 의도를 상태 그래프로 관리.
+> 핵심 차별점: **(1) 건강·자산 통합 회복탄력성**(양방향) **(2) 능동성**(자산 선제 감지) **(3) 지불의향 기반 개인화** **(4) 이중 capability 경계**(실행 권한 없음 + 의료 권고 생성 안 함) **(5) 의도=상태**.
 
 ---
 
@@ -81,15 +81,22 @@ flowchart TB
 
 이 그래프가 서비스 로직의 본체입니다. LLM이 아니라 **코드가** 이 전이를 강제합니다.
 
+> **중요**: `HealthCareIntent`, `InsuranceIntent`, `AssetDefenseIntent` 등은 도메인별
+> 전문 에이전트로 라우팅한다는 뜻이 아닙니다. JB WM은 고객 1명을 하나의
+> **통합 회복탄력성 상태**로 보는 holistic WM agent입니다. Intent 상태는 하나의
+> 통합 agent가 건강·보험·현금흐름·자산·투자·메모리를 함께 본 뒤, 이번 턴에서
+> 가장 우선되는 고객 니즈와 승인 게이트를 표현하는 **상태 라벨**입니다.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Monitoring
 
-    Monitoring --> SignalDetected: 데이터 이벤트 감지
+    Monitoring --> SignalDetected: 자산 변동 선제 감지
+    Monitoring --> SignalDetected: 건강 이벤트 제출
     Monitoring --> SignalDetected: 고객 자연어 입력
 
     SignalDetected --> IntentUnknown: 의도 불명확
-    SignalDetected --> HealthCareIntent: 의료 대응 필요
+    SignalDetected --> HealthCareIntent: 의료비 대비 필요
     SignalDetected --> InsuranceIntent: 보험 점검/청구 필요
     SignalDetected --> AssetDefenseIntent: 현금흐름/자산 방어 필요
     SignalDetected --> InvestmentAdjustIntent: 투자전략 조정 필요
@@ -128,20 +135,28 @@ stateDiagram-v2
     UpdateMemory --> Monitoring
 ```
 
-### 진입 트리거 2종
+### 진입 트리거 (소스별)
 
 | 트리거 | 예시 | 성격 |
 |---|---|---|
-| 데이터/이벤트 | 건강검진 업로드, 소비 급증, 대출 만기 접근, 보험 만기 | 수동 (시스템 감지) |
-| 고객 자연어 | "투자는 당분간 보수적으로 갈래" | 능동 (고객 발화) |
+| **자산 — 시스템 선제** | 포트폴리오 손실 급등, 소비 급증, 상환 압박 | 회사 보유 데이터로 실시간 감지 |
+| **자산 — 고객 언급** | "다음 달 큰 지출 예정" | 자연어 → 계획·승인 가능 |
+| **건강 문서 제출** | **진단서·정기검진 내역**(객관 문서) | 제출 시 재평가 (주관 진술 아님) |
+| **고객 자연어 (요청/성향)** | "보험 봐줘", "투자는 보수적으로" | 발화 → 요청/성향 변경 |
 
-자연어 입력만으로 금융 액션 없이 **성향/제약이 바뀌고 장기 Memory에 저장**될 수 있습니다 (`PreferenceUpdate`).
+> **자연어는 1급 트리거**입니다. 액션이 필요하면 `GeneratePlan→RiskCheck→승인`을 거치고, **순전히 성향/지불의향 변경일 때만** `PreferenceUpdate`(액션 없음)로 갑니다. ([docs/03](docs/03_STATE_MACHINE.md))
+>
+> **건강은 객관 문서로 앵커**: 질병 평가는 제출된 진단서·검진 내역 + 통계로 하고, 주관(인지·지불의향)은 *대응 개인화*에만 반영합니다 — 주관이 질병 크기를 왜곡하지 않도록.
 
 ### 의도(Intent) = 고객의 숨은 니즈
 
+Intent는 agent 분리가 아니라 **현재 turn의 주된 고객 니즈**입니다. 예를 들어
+`AssetDefenseIntent`로 분류되어도 계획 생성은 의료비 대비, 보험 공백, 투자 제약,
+현금흐름을 함께 고려해야 합니다.
+
 | 상태 | 고객의 숨은 의도 |
 |---|---|
-| `HealthCareIntent` | "검진/진료를 받아야 하나?" |
+| `HealthCareIntent` | "의료비를 어떻게 대비하지?" (재무 대비 — 의료 권고 아님) |
 | `InsuranceIntent` | "내 보험으로 커버되나?" |
 | `AssetDefenseIntent` | "당장 현금흐름 괜찮나?" |
 | `InvestmentAdjustIntent` | "투자 위험도를 낮춰야 하나?" |
@@ -149,9 +164,14 @@ stateDiagram-v2
 
 ---
 
-## 안전 모델 — Capability 기반 (프롬프트가 아니라 권한)
+## 안전 모델 — 이중 Capability 경계 (프롬프트가 아니라 권한)
 
-LLM에게 "하지 마"라고 **부탁하지 않습니다.** 애초에 **실행 권한 자체를 주지 않습니다.**
+LLM에게 "하지 마"라고 **부탁하지 않습니다.** 애초에 **권한 자체를 주지 않습니다.** 두 개의 경계가 있습니다:
+
+1. **실행 경계** — AI는 실제 행동(예약·청구·송금)을 실행할 권한이 없다. 제안만 하고, 고객 승인 후 Executor(코드)가 실행.
+2. **의료 경계** — AI/회사는 **의료 권고 자체를 생성하지 않는다.** 재무 대비 + 통계 참고정보(출처 명시) + 전문가 연결만. 의료 결정권은 고객+주치의. ([10](docs/10_SECURITY_PRIVACY.md))
+
+아래는 실행 경계의 흐름입니다:
 
 ```mermaid
 sequenceDiagram
@@ -215,19 +235,37 @@ flowchart LR
 
 ## 기술 스택
 
-| 레이어 | 기술 |
-|---|---|
-| 런타임 | Python 3.12+ |
-| API | FastAPI |
-| 검증 | Pydantic v2 |
-| DB | PostgreSQL |
-| ORM | SQLModel |
-| 마이그레이션 | Alembic |
-| 추론 | Codex Python SDK (`openai-codex`) — OAuth 세션 |
-| 워크플로우 | 자체 유한 상태머신 (FSM) |
-| 도구 노출 | MCP (동적 데이터) + read-only 워크스페이스 (정적 규정) |
-| 패키지 | uv |
-| 테스트 | pytest |
+| Layer             | Library / Tool                       |
+| ----------------- | ------------------------------------ |
+| Runtime           | Python 3.12+                         |
+| API               | FastAPI                              |
+| Web server (ASGI) | uvicorn                              |
+| Validation        | Pydantic v2                          |
+| Database          | PostgreSQL                           |
+| ORM               | SQLModel                             |
+| Migration         | Alembic                              |
+| Reasoning         | Codex Python SDK + rule-based stub   |
+| Workflow          | Custom finite state machine (FSM)    |
+| Tool exposure     | read-only workspace + MCP (planned)  |
+| Package manager   | uv                                   |
+| Testing           | pytest                               |
+
+### 스택 설명
+
+- **Runtime — Python 3.12+**: 백엔드 코드를 작성·실행하는 프로그래밍 언어와 버전. 3.12의 문법·표준 라이브러리를 사용한다.
+- **API — FastAPI**: HTTP 요청(GET/POST 등)을 받아 URL과 파이썬 함수를 연결(라우팅)하고, 요청 본문을 파싱하며, 반환값을 JSON 응답으로 만든다. `/docs`에 API 목록 문서를 자동 생성한다.
+- **Web server (ASGI) — uvicorn** *(왜 필요한가)*: FastAPI로 작성한 것은 "요청이 오면 실행할 함수의 정의"일 뿐, 스스로 네트워크 포트를 열어 외부 연결을 받지 못한다. 운영체제의 포트(예: 8000)를 열고, 들어오는 HTTP 연결을 받아 `ASGI`라는 표준 인터페이스로 FastAPI 앱에 전달하고, 결과를 다시 네트워크로 돌려보내는 **별도 프로그램**이 필요하다 — 그게 uvicorn이다. 앱 로직과 네트워크 처리를 분리하면 같은 앱을 다른 서버로 바꾸거나 작업자(worker)를 늘려 동시 요청을 처리할 수 있다.
+- **Validation — Pydantic v2**: 외부에서 들어온 데이터(JSON 등)가 정해둔 필드·타입과 맞는지 검사하고 파이썬 객체로 변환한다. 타입 불일치·필드 누락이면 자동으로 거부(HTTP 422)해, 잘못된 데이터가 내부 로직까지 들어오지 않게 한다.
+- **Database — PostgreSQL**: 데이터를 디스크에 영구 저장하고 `SQL`로 조회·수정하는 관계형 데이터베이스. 고객·이벤트·이력이 테이블(행과 열)로 저장되며 프로그램을 꺼도 남는다.
+- **ORM — SQLModel**: 데이터베이스의 테이블·행을 파이썬 클래스·객체로 다루게 해준다. SQL 문자열을 직접 쓰는 대신 `Customer` 같은 클래스를 정의하면 그것이 테이블이 되고, 객체 저장은 INSERT, 조회는 SELECT로 변환된다. SQL 오타·타입 불일치를 줄이고 스키마를 코드로 관리한다.
+- **Migration — Alembic**: 코드의 모델이 바뀌면(컬럼 추가 등) 기존 데이터베이스 구조도 맞춰 바꿔야 한다. 그 변경을 버전별 스크립트로 기록하고 적용·되돌린다. *현재는 개발 단계라 테이블을 매번 새로 만드는 `create_all`을 쓰고 Alembic은 미사용. 운영에서 데이터를 보존한 채 구조를 바꾸려면 필요하다.*
+- **Reasoning — Codex SDK + rule-based stub**: 의도 분류·계획 생성을 수행하는 부분. Codex SDK는 OpenAI Codex 모델을 코드에서 호출하는 라이브러리, `stub`은 LLM 없이 고정 규칙으로 같은 인터페이스를 구현한 것. `REASONER` 설정으로 선택한다.
+- **Workflow — Custom finite state machine (FSM)**: 분석 세션이 지금 어느 단계(상태)에 있고 다음에 어디로 갈 수 있는지를 코드로 제한한다. → **외부 라이브러리가 아니라 우리가 직접 짠 코드**다. 엄밀히는 "설치하는 도구"가 아니라 아키텍처에 가깝다.
+- **Tool exposure — read-only workspace + MCP (planned)**: 에이전트(LLM)에게 어떤 데이터·기능을 줄지 정하는 방식. 정적 자료는 읽기 전용 파일로, 동적 데이터는 `MCP`(모델에 도구를 표준 프로토콜로 연결)로 노출한다. *MCP는 외부 표준이지만 현재 미구현(파일 방식 사용 중)* — 절반은 "구현 방식"이라 순수 라이브러리와 성격이 다르다.
+- **Package manager — uv**: 프로젝트가 필요로 하는 외부 라이브러리를 설치·버전 관리하고, 프로젝트 전용 격리 환경(가상환경)을 만든다.
+- **Testing — pytest**: 코드가 의도대로 동작하는지 자동 검증하는 테스트를 작성·실행하는 프레임워크. 예상 입력/출력을 적어두면 코드 변경 후 한 번에 회귀 확인한다. **런타임 구성요소가 아니라 개발 도구**다.
+
+> **"Workflow·Testing을 스택에 써야 하나"** — Testing(pytest)은 개발 도구지만 스택에 테스트 프레임워크를 적는 건 업계 관례(레퍼런스의 Vitest처럼)라 유지해도 무방하다. Workflow(FSM)는 외부 라이브러리가 아니라 자체 코드라 엄밀히는 스택이 아니라 **아키텍처**다 — 빼고 [02_SYSTEM_ARCHITECTURE](docs/02_SYSTEM_ARCHITECTURE.md)·[03_STATE_MACHINE](docs/03_STATE_MACHINE.md)에서만 다루는 게 더 정확하다. (원하면 표에서 제거)
 
 ---
 

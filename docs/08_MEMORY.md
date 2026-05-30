@@ -12,6 +12,7 @@ flowchart TB
         S3[최근 대화 컨텍스트]
     end
     subgraph Long["장기 메모리 (고객 단위, 영속)"]
+        L0[medical_willingness ★지불의향]
         L1[risk_preference]
         L2[hospital_preference]
         L3[investment_style]
@@ -44,20 +45,27 @@ flowchart TB
 
 ```json
 {
+  "medical_willingness": "conservative",
   "risk_preference": "low",
-  "hospital_preference": "서울아산병원",
+  "hospital_preference": "전북대학교병원",
   "investment_style": "stable",
   "constraints": { "투자": "당분간 보류" }
 }
 ```
 
+### 지불 의향 (medical_willingness) — 1급 개인화 변수
+
+"의료/대응에 얼마까지 쓸 용의가 있는가"(`conservative` / `moderate` / `aggressive` 또는 금액대). 이것이:
+- **개인화의 축**: 같은 건강·자산 상황도 지불의향에 따라 다른 제안이 나온다.
+- **의료 경계의 한 축**: 회사는 "치료하세요"가 아니라 *"당신이 정한 예산 하에서 재무적으로 이렇게 대비됩니다"* 라고 말한다 ([10](10_SECURITY_PRIVACY.md), [01](01_PRODUCT_CONTEXT.md)).
+
 ### 개인화 동작
 
 장기 메모리는 **`GeneratePlan`의 입력**입니다 ([04](04_AGENT_RUNTIME.md) `generate_plan(intent, memory)`). 같은 신호라도 고객마다 다른 계획이 나옵니다.
 
-예: 혈압 상승 신호 →
-- `risk_preference: low` + `constraints.투자=보류` 고객 → 투자 조정 제안 **생략**, 보험·검진만 제안
-- `investment_style: aggressive` 고객 → 포트폴리오 조정도 적극 제안
+예: 자산 손실 + 의료비 대비 필요 신호 →
+- `medical_willingness: conservative` + `constraints.투자=보류` 고객 → 저비용 보장 점검·비상자금만, 투자 조정·고비용 의료대비 **생략**
+- `medical_willingness: aggressive` + `investment_style: aggressive` 고객 → 적극적 의료비 대비 + 포트폴리오 조정도 제안
 
 ## 메모리 갱신 경로
 
@@ -68,19 +76,19 @@ flowchart TB
 | 승인/거절 패턴 | 장기: 어떤 제안을 자주 거절하는지 |
 | 세션 진행 | 단기: 상태·대기 proposal·대화 |
 
-### 자연어만으로 성향 변경 (중요)
+### 성향 변경은 자연어의 *한 갈래* (전부가 아님)
 
-데이터 변화가 없어도 고객 발화만으로 장기 메모리가 바뀝니다.
+자연어 입력은 1급 트리거이고, 발화 내용에 따라 액션(→승인)으로도, 성향 변경으로도 이어집니다 ([03](03_STATE_MACHINE.md) "자연어 입력은 1급 트리거다"). 아래는 **발화가 순전히 성향/지불의향 변경일 때**의 경로입니다.
 
 ```
-고객: "나 앞으로 투자는 보수적으로 갈래"
+고객: "의료엔 큰 비용 부담스러워. 투자도 보수적으로."
 → SignalDetected (user_utterance)
 → ClarifyUser → PreferenceUpdate
-→ UpdateMemory: investment_style="stable", risk_preference="low"
-→ (금융 액션 없음) → Monitoring
+→ UpdateMemory: medical_willingness="conservative", investment_style="stable"
+→ (액션 불필요) → Monitoring
 ```
 
-이후 모든 계획이 이 성향을 반영합니다. = 개인화.
+반면 "다음 달 큰 지출 예정"처럼 **액션이 필요한 발화**는 `GeneratePlan → RiskCheck → 승인`으로 갑니다(성향 변경 아님). 이후 모든 계획이 갱신된 성향을 반영합니다. = 개인화.
 
 ## 누가 갱신하는가
 

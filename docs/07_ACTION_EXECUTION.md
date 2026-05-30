@@ -116,6 +116,13 @@ REGISTRY = {
 
 실행 후 결과를 확인하여 완료/실패를 판정하고, `UpdateMemory`로 넘어갑니다. 예약 완료 여부, 청구 접수 여부, 제안서 생성 여부 등.
 
+## 의료 경계 (두 번째 capability 경계)
+
+실행 경계와 별개로, **액션 자체가 의료 권고가 되어선 안 됩니다.** 의료 관련 proposal/handler는 다음으로 한정됩니다:
+- 허용: 비용 대비 플랜(`cashflow_plan`), 보장 점검·청구(`review_insurance`/`submit_claim`), 정보성 통계 리포트(`report`), 전문가/병원 연결(`notify`/예약 *지원*).
+- 금지: "이 치료를 받으세요" 식 처치·진단·복약 권고 생성.
+- 모든 의료 관련 출력에 출처·면책을 포함. 의료 결정권은 고객·주치의. ([10](10_SECURITY_PRIVACY.md), [01](01_PRODUCT_CONTEXT.md))
+
 ## 책임소재 & 설명가능성 (평가 5.5)
 
 - 각 액션은 **누가 언제 승인했는지**(`ApprovalDecision`)와 **무엇이 실행됐는지**(`ActionExecution`)가 분리 기록됨.
