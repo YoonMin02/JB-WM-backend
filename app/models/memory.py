@@ -12,6 +12,8 @@ from app.models.base import utcnow
 
 class CustomerMemory(SQLModel, table=True):
     customer_id: str = Field(foreign_key="customer.id", primary_key=True)
+    # 지불의향 — 1급 개인화 변수 (08_MEMORY). conservative / moderate / aggressive
+    medical_willingness: str = "moderate"
     risk_preference: str = "mid"  # low / mid / high
     hospital_preference: str | None = None
     investment_style: str = "balanced"  # stable / balanced / aggressive

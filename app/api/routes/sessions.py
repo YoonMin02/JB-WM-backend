@@ -72,10 +72,15 @@ def get_events(session_id: str, db: Session = Depends(db_session)) -> dict:
 
 @router.post("/agent-sessions/{session_id}/signals", status_code=202)
 async def post_signal(session_id: str, body: SignalIn, db: Session = Depends(db_session)) -> dict:
+    from app.agent.codex_adapter import CodexRateLimited
+
     s = db.get(AgentSession, session_id)
     if not s:
         raise HTTPException(404, "세션을 찾을 수 없습니다.")
     if s.state != State.MONITORING:
         raise HTTPException(409, f"신호는 Monitoring 상태에서만 받습니다 (현재: {s.state}).")
-    s = await Orchestrator().handle_signal(db, s, body.source, body.payload)
+    try:
+        s = await Orchestrator().handle_signal(db, s, body.source, body.payload)
+    except CodexRateLimited as e:
+        raise HTTPException(429, f"추론 호출 한도 초과: {e}") from e
     return serialize_session(db, s)

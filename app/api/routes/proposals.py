@@ -47,8 +47,12 @@ async def _decide(db: Session, proposal_id: str, decision: str, note: str = "") 
 
     db.add(ApprovalDecision(proposal_id=proposal_id, decision=decision, note=note))
     db.commit()
+    from app.agent.codex_adapter import CodexRateLimited
+
     try:
         s = await Orchestrator().apply_decision(db, s, decision, note)
+    except CodexRateLimited as e:
+        raise HTTPException(429, f"추론 호출 한도 초과: {e}") from e
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
     return serialize_session(db, s)

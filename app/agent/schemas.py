@@ -49,3 +49,35 @@ class ActionProposalSchema(BaseModel):
 class Plan(BaseModel):
     proposals: list[ActionProposalSchema] = Field(default_factory=list)
     explanation: str = ""
+
+
+# ── LLM 출력 전용 스키마 (strict 호환: free-form dict 없음) ──
+# OpenAI strict 구조화출력은 모든 object에 additionalProperties=false를 요구하므로
+# free-form `params: dict`를 LLM 스키마에서 제외한다. params는 서버가 채운다.
+
+
+class LLMActionProposal(BaseModel):
+    kind: ActionKind
+    summary: str
+    has_external_effect: bool
+    rationale: str
+
+
+class LLMPlan(BaseModel):
+    proposals: list[LLMActionProposal]
+    explanation: str
+
+    def to_plan(self) -> Plan:
+        return Plan(
+            proposals=[
+                ActionProposalSchema(
+                    kind=p.kind,
+                    summary=p.summary,
+                    has_external_effect=p.has_external_effect,
+                    params={},
+                    rationale=p.rationale,
+                )
+                for p in self.proposals
+            ],
+            explanation=self.explanation,
+        )

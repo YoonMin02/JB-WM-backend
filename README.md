@@ -81,6 +81,12 @@ flowchart TB
 
 이 그래프가 서비스 로직의 본체입니다. LLM이 아니라 **코드가** 이 전이를 강제합니다.
 
+> **중요**: `HealthCareIntent`, `InsuranceIntent`, `AssetDefenseIntent` 등은 도메인별
+> 전문 에이전트로 라우팅한다는 뜻이 아닙니다. JB WM은 고객 1명을 하나의
+> **통합 회복탄력성 상태**로 보는 holistic WM agent입니다. Intent 상태는 하나의
+> 통합 agent가 건강·보험·현금흐름·자산·투자·메모리를 함께 본 뒤, 이번 턴에서
+> 가장 우선되는 고객 니즈와 승인 게이트를 표현하는 **상태 라벨**입니다.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Monitoring
@@ -143,6 +149,10 @@ stateDiagram-v2
 > **건강은 객관 문서로 앵커**: 질병 평가는 제출된 진단서·검진 내역 + 통계로 하고, 주관(인지·지불의향)은 *대응 개인화*에만 반영합니다 — 주관이 질병 크기를 왜곡하지 않도록.
 
 ### 의도(Intent) = 고객의 숨은 니즈
+
+Intent는 agent 분리가 아니라 **현재 turn의 주된 고객 니즈**입니다. 예를 들어
+`AssetDefenseIntent`로 분류되어도 계획 생성은 의료비 대비, 보험 공백, 투자 제약,
+현금흐름을 함께 고려해야 합니다.
 
 | 상태 | 고객의 숨은 의도 |
 |---|---|
@@ -225,19 +235,37 @@ flowchart LR
 
 ## 기술 스택
 
-| 레이어 | 기술 |
-|---|---|
-| 런타임 | Python 3.12+ |
-| API | FastAPI |
-| 검증 | Pydantic v2 |
-| DB | PostgreSQL |
-| ORM | SQLModel |
-| 마이그레이션 | Alembic |
-| 추론 | Codex Python SDK (`openai-codex`) — OAuth 세션 |
-| 워크플로우 | 자체 유한 상태머신 (FSM) |
-| 도구 노출 | MCP (동적 데이터) + read-only 워크스페이스 (정적 규정) |
-| 패키지 | uv |
-| 테스트 | pytest |
+| Layer             | Library / Tool                       |
+| ----------------- | ------------------------------------ |
+| Runtime           | Python 3.12+                         |
+| API               | FastAPI                              |
+| Web server (ASGI) | uvicorn                              |
+| Validation        | Pydantic v2                          |
+| Database          | PostgreSQL                           |
+| ORM               | SQLModel                             |
+| Migration         | Alembic                              |
+| Reasoning         | Codex Python SDK + rule-based stub   |
+| Workflow          | Custom finite state machine (FSM)    |
+| Tool exposure     | read-only workspace + MCP (planned)  |
+| Package manager   | uv                                   |
+| Testing           | pytest                               |
+
+### 스택 설명
+
+- **Runtime — Python 3.12+**: 백엔드 코드를 작성·실행하는 프로그래밍 언어와 버전. 3.12의 문법·표준 라이브러리를 사용한다.
+- **API — FastAPI**: HTTP 요청(GET/POST 등)을 받아 URL과 파이썬 함수를 연결(라우팅)하고, 요청 본문을 파싱하며, 반환값을 JSON 응답으로 만든다. `/docs`에 API 목록 문서를 자동 생성한다.
+- **Web server (ASGI) — uvicorn** *(왜 필요한가)*: FastAPI로 작성한 것은 "요청이 오면 실행할 함수의 정의"일 뿐, 스스로 네트워크 포트를 열어 외부 연결을 받지 못한다. 운영체제의 포트(예: 8000)를 열고, 들어오는 HTTP 연결을 받아 `ASGI`라는 표준 인터페이스로 FastAPI 앱에 전달하고, 결과를 다시 네트워크로 돌려보내는 **별도 프로그램**이 필요하다 — 그게 uvicorn이다. 앱 로직과 네트워크 처리를 분리하면 같은 앱을 다른 서버로 바꾸거나 작업자(worker)를 늘려 동시 요청을 처리할 수 있다.
+- **Validation — Pydantic v2**: 외부에서 들어온 데이터(JSON 등)가 정해둔 필드·타입과 맞는지 검사하고 파이썬 객체로 변환한다. 타입 불일치·필드 누락이면 자동으로 거부(HTTP 422)해, 잘못된 데이터가 내부 로직까지 들어오지 않게 한다.
+- **Database — PostgreSQL**: 데이터를 디스크에 영구 저장하고 `SQL`로 조회·수정하는 관계형 데이터베이스. 고객·이벤트·이력이 테이블(행과 열)로 저장되며 프로그램을 꺼도 남는다.
+- **ORM — SQLModel**: 데이터베이스의 테이블·행을 파이썬 클래스·객체로 다루게 해준다. SQL 문자열을 직접 쓰는 대신 `Customer` 같은 클래스를 정의하면 그것이 테이블이 되고, 객체 저장은 INSERT, 조회는 SELECT로 변환된다. SQL 오타·타입 불일치를 줄이고 스키마를 코드로 관리한다.
+- **Migration — Alembic**: 코드의 모델이 바뀌면(컬럼 추가 등) 기존 데이터베이스 구조도 맞춰 바꿔야 한다. 그 변경을 버전별 스크립트로 기록하고 적용·되돌린다. *현재는 개발 단계라 테이블을 매번 새로 만드는 `create_all`을 쓰고 Alembic은 미사용. 운영에서 데이터를 보존한 채 구조를 바꾸려면 필요하다.*
+- **Reasoning — Codex SDK + rule-based stub**: 의도 분류·계획 생성을 수행하는 부분. Codex SDK는 OpenAI Codex 모델을 코드에서 호출하는 라이브러리, `stub`은 LLM 없이 고정 규칙으로 같은 인터페이스를 구현한 것. `REASONER` 설정으로 선택한다.
+- **Workflow — Custom finite state machine (FSM)**: 분석 세션이 지금 어느 단계(상태)에 있고 다음에 어디로 갈 수 있는지를 코드로 제한한다. → **외부 라이브러리가 아니라 우리가 직접 짠 코드**다. 엄밀히는 "설치하는 도구"가 아니라 아키텍처에 가깝다.
+- **Tool exposure — read-only workspace + MCP (planned)**: 에이전트(LLM)에게 어떤 데이터·기능을 줄지 정하는 방식. 정적 자료는 읽기 전용 파일로, 동적 데이터는 `MCP`(모델에 도구를 표준 프로토콜로 연결)로 노출한다. *MCP는 외부 표준이지만 현재 미구현(파일 방식 사용 중)* — 절반은 "구현 방식"이라 순수 라이브러리와 성격이 다르다.
+- **Package manager — uv**: 프로젝트가 필요로 하는 외부 라이브러리를 설치·버전 관리하고, 프로젝트 전용 격리 환경(가상환경)을 만든다.
+- **Testing — pytest**: 코드가 의도대로 동작하는지 자동 검증하는 테스트를 작성·실행하는 프레임워크. 예상 입력/출력을 적어두면 코드 변경 후 한 번에 회귀 확인한다. **런타임 구성요소가 아니라 개발 도구**다.
+
+> **"Workflow·Testing을 스택에 써야 하나"** — Testing(pytest)은 개발 도구지만 스택에 테스트 프레임워크를 적는 건 업계 관례(레퍼런스의 Vitest처럼)라 유지해도 무방하다. Workflow(FSM)는 외부 라이브러리가 아니라 자체 코드라 엄밀히는 스택이 아니라 **아키텍처**다 — 빼고 [02_SYSTEM_ARCHITECTURE](docs/02_SYSTEM_ARCHITECTURE.md)·[03_STATE_MACHINE](docs/03_STATE_MACHINE.md)에서만 다루는 게 더 정확하다. (원하면 표에서 제거)
 
 ---
 

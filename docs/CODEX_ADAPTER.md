@@ -77,6 +77,9 @@ result.error            # TurnError | None
 
 `run(...)`은 턴 시작 → 완료까지 대기 → `TurnResult` 반환. 평문 `str`은 `TextInput` 약칭.
 
+> **구조화 출력은 strict 스키마여야 함 (중요).** OpenAI strict 구조화출력은 **모든 object에 `additionalProperties: false` + 모든 키 `required`** 를 요구합니다. Pydantic의 `model_json_schema()`는 이를 안 넣으므로, 어댑터의 `_strict_schema()`가 스키마를 재귀적으로 변환해 넣습니다. 안 하면 `400 invalid_json_schema`.
+> 또한 free-form `dict`(예: `ActionProposal.params`)는 strict와 충돌하므로, **LLM 출력 전용 스키마**(`LLMPlan`/`LLMActionProposal`, `params` 없음)를 쓰고 서버가 `params`를 채웁니다 ([schemas.py](#)).
+
 ### 스트리밍 (나중)
 ```python
 handle = await thread.turn(prompt)
@@ -106,7 +109,7 @@ Codex SDK는 커스텀 함수 등록 API가 없고 **워크스페이스 + MCP** 
 | ② 통계 | MCP 읽기 도구 `get_population_stat` (또는 워크스페이스에 통계 스냅샷 파일) |
 | ③ 규정·약관 | `cwd` 워크스페이스의 **읽기 전용 파일** |
 
-> 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. MVP 어댑터는 현재 고객의 `profile/health/insurance/loans/memory(.json)`를 materialize하며, 슬라이스 2에서 **자산 이벤트·통계 스냅샷**을 추가합니다. 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
+> 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. 어댑터는 `build_context`의 모든 키 — `profile/health/insurance/loans/portfolio/asset_events/population/memory(.json)` — 를 워크스페이스에 materialize합니다(슬라이스 2 반영 완료). 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
 
 > SDK 런타임은 MCP를 지원합니다 (`McpToolCall*` 알림, `mcp_server_config`). 동적 데이터·통계 도구는 우리 백엔드 MCP 서버로 노출하고, **읽기 전용**으로 제한합니다. 실행 도구는 MCP에도 두지 않습니다.
 
@@ -130,6 +133,17 @@ async def run_with_retry(thread, prompt, schema):
 | `InvalidParamsError` | 입력 수정, 재시도 금지 |
 | `MethodNotFoundError` | SDK/런타임 버전 불일치, 재시도 금지 |
 | `result.status == "failed"` | `result.error` 읽고 세션 `Failed` 전이 ([03](03_STATE_MACHINE.md)) |
+
+## 호출 한도 (Rate Guard)
+
+쿼터 보호를 위해 어댑터에 프로세스 단위 가드(`_RateGuard`)가 있습니다. 매 Codex 호출 전 체크하고, 초과 시 `CodexRateLimited`를 던집니다 → API에서 **429**로 변환 (`sessions.post_signal`, `proposals._decide`).
+
+| 설정 (env) | 기본 | 의미 |
+|---|---|---|
+| `CODEX_MAX_CALLS_PER_MINUTE` | 30 | 분당 한도. 0=무제한 |
+| `CODEX_MAX_CALLS_TOTAL` | 500 | 프로세스 총 한도. 0=무제한 |
+
+stub reasoner는 호출 비용이 없으므로 가드 대상이 아닙니다. 자세히는 [ENVIRONMENT_VARIABLES](ENVIRONMENT_VARIABLES.md).
 
 ## 어댑터 위치 & 격리
 

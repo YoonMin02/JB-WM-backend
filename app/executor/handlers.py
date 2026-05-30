@@ -31,6 +31,8 @@ def _handle(proposal: ActionProposal) -> ActionExecution:
         return _exec_record(proposal.id, "ReportHandler", {"report": proposal.summary})
     if kind == "cashflow_plan":
         return _exec_record(proposal.id, "CashflowPlanHandler", {"plan": "3개월 비상자금 플랜 (mock)"})
+    if kind == "rebalance_portfolio":
+        return _exec_record(proposal.id, "RebalanceHandler", {"proposal": "저위험 리밸런싱 제안서 (mock)"})
     if kind == "book_hospital":
         return _exec_record(
             proposal.id, "HospitalBookingHandler", {"booking": "예약 완료 (mock)", "when": "내주"}

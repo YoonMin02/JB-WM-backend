@@ -100,3 +100,48 @@ def test_reject_flow(client):
     proposals = client.get(f"/agent-sessions/{sid}/proposals").json()["proposals"]
     claim = next(p for p in proposals if p["kind"] == "review_insurance")
     assert claim["status"] == "rejected"
+
+
+# ── 슬라이스 2: 자산 트리거 + 통합 회복탄력성 + 개인화 ──
+
+def test_slice2_asset_trigger_resilience(client):
+    customer_id = _seed_customer(client)
+    sid = client.post(f"/customers/{customer_id}/agent-sessions").json()["session_id"]
+
+    # 자산 손실 선제 신호 → AssetDefenseIntent → 다중 제안
+    r = client.post(
+        f"/agent-sessions/{sid}/signals",
+        json={"source": "event", "payload": {"kind": "portfolio_loss"}},
+    ).json()
+    assert r["active_intents"]["primary"] == "AssetDefenseIntent"
+    assert r["state"] == "UserApproval"  # 보장 점검(외부 효과)이 승인 대기
+
+    proposals = client.get(f"/agent-sessions/{sid}/proposals").json()["proposals"]
+    kinds = {p["kind"]: p for p in proposals}
+
+    # 통계 앵커 리포트 + 비상자금 플랜은 자동 실행됨
+    assert kinds["report"]["status"] == "executed"
+    assert kinds["cashflow_plan"]["status"] == "executed"
+    # 보장 점검은 외부 효과 → 승인 대기
+    assert kinds["review_insurance"]["has_external_effect"] is True
+
+    # 개인화: '투자 보류' 제약 → 리밸런싱 제안 제외
+    assert "rebalance_portfolio" not in kinds
+
+    # 승인 → 완료
+    pid = r["pending_proposal"]["id"]
+    done = client.post(f"/proposals/{pid}/approve").json()
+    assert done["state"] == "Monitoring"
+
+
+def test_slice2_population_stat_tool(client):
+    """통계 도구가 정형 쿼리로 출처와 함께 값을 반환."""
+    import app.core.database as database
+    from app.tools.data_tools import get_population_stat
+    from sqlmodel import Session
+
+    _seed_customer(client)  # lifespan seed 보장
+    with Session(database.engine) as db:  # fixture가 patch한 sqlite 엔진
+        stat = get_population_stat(db, "65-69", "avg_emergency_fund_months")
+    assert stat["value"]["months"] == 6
+    assert stat["source"]  # 출처 동반 (설명가능성)

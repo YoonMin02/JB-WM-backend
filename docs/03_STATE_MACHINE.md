@@ -2,6 +2,11 @@
 
 이 문서가 서비스 로직의 **본체**입니다. LLM은 판단·계획하지만, **어떤 전이가 허용되는지는 코드가 강제**합니다. 금융/보험/의료는 결정론적 흐름이 필요하기 때문입니다.
 
+> **Intent 상태는 도메인별 전문 에이전트가 아닙니다.** JB WM은 고객의 건강·보험·현금흐름·자산·투자·생애계획을 하나의
+> 회복탄력성 상태로 보는 **통합 WM 에이전트**입니다. `InsuranceIntent`,
+> `AssetDefenseIntent` 같은 상태는 하나의 통합 agent가 모든 고객 데이터를 함께 본 뒤,
+> 이번 턴에서 가장 우선되는 고객 니즈와 승인 게이트를 표현하는 라벨입니다.
+
 ## 왜 상태머신인가
 
 LLM만으로는 다음이 보장되지 않습니다:
@@ -95,6 +100,10 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 
 ## 상태 정의
 
+모든 `*Intent` 상태에서도 agent는 특정 도메인만 보지 않습니다. 상태 이름은 주된 니즈를
+표시할 뿐이며, 계획 생성은 항상 건강·보험·현금흐름·자산·투자전략·장기 메모리를 함께
+검토해야 합니다.
+
 | 상태 | 고객의 숨은 의도 | 에이전트 판단 | 가능한 액션 |
 |---|---|---|---|
 | `Monitoring` | (없음) | 데이터 지속 관찰, 이상 징후 탐지 | 동기화, 신호 탐지 |
@@ -120,6 +129,11 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 
 ## 전이 규칙 (요약)
 
+LLM이 관여하는 핵심 지점은 상태머신 전체가 아니라, **상태 전이를 위한 판단 입력**입니다.
+구체적으로 LLM은 `SignalDetected`에서 intent를 추론하고, `GeneratePlan`에서
+구조화된 `Plan(ActionProposal[])`을 생성합니다. 코드가 그 결과를 검증해 실제 전이를
+적용합니다.
+
 | From | To | 트리거 | 소유 |
 |---|---|---|---|
 | Monitoring | SignalDetected | 이벤트 또는 자연어 입력 | Orchestrator |
@@ -135,6 +149,19 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 | VerifyResult / NoAction / PreferenceUpdate / Failed | UpdateMemory | — | 상태머신 |
 | UpdateMemory | Monitoring | 루프 종료 | 상태머신 |
 
+### LLM 관여 지점
+
+| 단계 | LLM 역할 | 코드 역할 |
+|---|---|---|
+| `SignalDetected` | 고객 신호와 최신 컨텍스트를 보고 `IntentInference` 생성 | 허용된 intent인지 검증하고 해당 상태로 전이 |
+| `IntentUnknown` | 명확화 질문 초안 생성 | `ClarifyUser` 상태로 전이하고 질문을 고객에게 노출 |
+| `GeneratePlan` | 통합 컨텍스트와 메모리를 바탕으로 `Plan(ActionProposal[])` 생성 | 제안을 DB에 저장하고 `RiskCheck`로 전이 |
+| `RevisePlan` | 고객 수정 요청을 반영해 계획 재생성 | 기존 proposal 상태 변경, 새 proposal 저장 |
+| `UpdateMemory` 일부 | 발화에서 선호·제약·지불의향 후보 추출 | 실제 장기 메모리 반영 여부를 정책/검증 후 저장 |
+
+LLM은 `RiskCheck`, `NeedApproval`, `UserApproval`, `ExecuteAction`, `VerifyResult`의
+권한을 갖지 않습니다. 이 단계들은 Policy Engine, 고객, Executor가 소유합니다.
+
 ## 가드 조건
 
 - 유효한 고객 컨텍스트 없이는 의도 추론을 시작할 수 없다.
@@ -145,7 +172,10 @@ MVP에서 이벤트원은 **mock/수동 트리거**입니다 (예: "시뮬레이
 
 ## 병렬 의도 (확장)
 
-실제로는 여러 의도가 동시에 활성일 수 있습니다 (보험 진행 중 + 투자 보류). MVP는 단일 의도 흐름으로 시작하고, 의도별 서브상태(`ACTIVE` / `DEFERRED` / `PENDING` / `APPROVED`)를 두는 계층적 상태머신으로 확장합니다.
+실제로는 여러 의도가 동시에 활성일 수 있습니다 (보험 진행 중 + 투자 보류). 이는 여러
+전문 agent를 둔다는 뜻이 아니라, 하나의 통합 agent 안에서 여러 니즈의 처리 상태를
+동시에 추적한다는 뜻입니다. MVP는 단일 주 의도 흐름으로 시작하고, 의도별 서브상태
+(`ACTIVE` / `DEFERRED` / `PENDING` / `APPROVED`)를 두는 계층적 상태머신으로 확장합니다.
 
 ```
 InsuranceIntent     = ACTIVE

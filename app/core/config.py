@@ -28,7 +28,10 @@ class Settings(BaseSettings):
     reasoner: Literal["stub", "codex"] = "stub"
     openai_api_key: str | None = None
     codex_working_directory: str = "./workspace"
-    codex_model: str = "gpt-5.4"
+    codex_model: str = "gpt-5.4"  # 사용 가능: gpt-5.5/5.4/5.4-mini/5.3-codex/5.2
+    # 호출 횟수 가드 (쿼터 보호 — 넉넉하게). 0 = 무제한
+    codex_max_calls_per_minute: int = 30
+    codex_max_calls_total: int = 500
 
     # Storage
     file_storage_driver: str = "local"

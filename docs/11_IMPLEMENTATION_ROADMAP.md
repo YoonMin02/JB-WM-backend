@@ -41,14 +41,26 @@ Monitoring → (mock 신호: 혈압상승) → SignalDetected → InsuranceInten
 
 **완료 기준**: 위 한 바퀴가 실제로 돌고, 프론트에서 알림→승인→결과 1장이 보임.
 
-## 슬라이스 2 — 자산 트리거 + 통합 회복탄력성 (다음 핵심)
+## 슬라이스 2 — 자산 트리거 + 통합 회복탄력성 ✅ (완료)
 
-통합 개념의 **메인 데모**. 자산 변동 선제 감지로 건강·자산을 묶어 판단.
-- `AssetEvent` + 자산 트리거(`portfolio_loss`,`repayment_pressure`) 선제 감지(mock)
-- 의도 확장: AssetDefense, InvestmentAdjust, HealthCare(의료비 대비), LifePlan
-- `get_portfolio_summary`, `get_loan_status`, **`get_population_stat`**(통계 시드) 도구
-- **지불의향(`medical_willingness`)** 을 계획 생성에 반영 (개인화)
-- 다중 액션 카드 (현금흐름·보장·투자 — 성향 따라 일부 제외)
+통합 개념의 **메인 데모**. 자산 변동 선제 감지로 건강·자산을 묶어 판단. StubReasoner로 종단 동작·테스트 완료.
+
+```
+Monitoring → (mock 신호: portfolio_loss) → SignalDetected → AssetDefenseIntent
+→ GeneratePlan(통계 앵커 + 지불의향·제약 반영) → RiskCheck
+→ report·cashflow_plan(자동) + review_insurance(승인 대기)
+→ 승인 → ExecuteAction → VerifyResult → UpdateMemory → Monitoring
+```
+
+구현됨:
+- `AssetEvent` + 자산 트리거(`portfolio_loss` 등) → `AssetDefenseIntent`
+- `MedicalDocument`(객관 문서) · `PopulationStat`(통계) 모델 + 시드
+- 도구: `get_portfolio_summary`, `get_asset_events`, **`get_population_stat`**(출처 동반)
+- **통계 앵커링**: "65–69 권장 비상자금 6개월(KOSIS) 대비 부족" 식 근거
+- **지불의향(`medical_willingness`) + 제약 개인화**: '투자 보류' → 리밸런싱 제안 제외
+- 다중 액션 카드 + 테스트 2개 (자산 트리거 종단 / 통계 도구)
+
+남은 것 (이후 슬라이스): `InvestmentAdjust`/`HealthCare`/`LifePlan` 계획 분기, 통계 항목 다양화.
 
 ## 슬라이스 3 — 명확화 & 개인화 심화
 

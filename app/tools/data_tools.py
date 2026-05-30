@@ -9,10 +9,11 @@ from __future__ import annotations
 from sqlmodel import Session, select
 
 from app.models.customer import Customer
-from app.models.finance import LoanAccount
+from app.models.finance import AssetEvent, Holding, LoanAccount, PortfolioAccount
 from app.models.health import HealthEvent, HealthRecord
 from app.models.insurance import CoverageItem, InsurancePolicy
 from app.models.memory import CustomerMemory
+from app.models.stats import PopulationStat
 
 
 def get_customer_profile(db: Session, customer_id: str) -> dict:
@@ -80,6 +81,7 @@ def get_customer_memory(db: Session, customer_id: str) -> dict:
     if not m:
         return {}
     return {
+        "medical_willingness": m.medical_willingness,  # 지불의향 (개인화 1급)
         "risk_preference": m.risk_preference,
         "hospital_preference": m.hospital_preference,
         "investment_style": m.investment_style,
@@ -87,13 +89,57 @@ def get_customer_memory(db: Session, customer_id: str) -> dict:
     }
 
 
+def get_portfolio_summary(db: Session, customer_id: str) -> dict:
+    accts = db.exec(select(PortfolioAccount).where(PortfolioAccount.customer_id == customer_id)).all()
+    holdings: list[Holding] = []
+    for a in accts:
+        holdings += db.exec(select(Holding).where(Holding.account_id == a.id)).all()
+    total = sum(float(h.amount) for h in holdings)
+    high_risk_weight = sum(h.weight for h in holdings if h.risk_grade == "high")
+    return {
+        "total_value": total,
+        "allocation": [
+            {"asset_type": h.asset_type, "risk_grade": h.risk_grade, "weight": h.weight}
+            for h in holdings
+        ],
+        "high_risk_weight": high_risk_weight,
+    }
+
+
+def get_asset_events(db: Session, customer_id: str) -> dict:
+    events = db.exec(select(AssetEvent).where(AssetEvent.customer_id == customer_id)).all()
+    return {"events": [{"kind": e.kind, "severity": e.severity, "raw_ref": e.raw_ref} for e in events]}
+
+
+def get_population_stat(db: Session, age_band: str, metric: str) -> dict:
+    """② 통계/기준 — 파라미터 쿼리 (RAG 아님). 출처·기준시점 동반."""
+    row = db.exec(
+        select(PopulationStat).where(
+            PopulationStat.age_band == age_band, PopulationStat.metric == metric
+        )
+    ).first()
+    if not row:
+        return {}
+    return {"value": row.value, "source": row.source, "as_of": row.as_of}
+
+
 def build_context(db: Session, customer_id: str) -> dict:
-    """reasoner 주입용 읽기 전용 컨텍스트 묶음."""
+    """reasoner 주입용 읽기 전용 컨텍스트 묶음 (건강·자산 통합)."""
+    profile = get_customer_profile(db, customer_id)
+    age_band = profile.get("age_band", "")
+    # 해당 연령대 통계 일부를 근거로 동봉 (분류 ②)
+    population = {
+        m: get_population_stat(db, age_band, m)
+        for m in ("avg_net_assets", "avg_emergency_fund_months", "cardio_prevalence")
+    }
     return {
         "customer_id": customer_id,
-        "profile": get_customer_profile(db, customer_id),
+        "profile": profile,
         "health": get_health_data(db, customer_id),
         "insurance": get_insurance_summary(db, customer_id),
         "loans": get_loan_status(db, customer_id),
+        "portfolio": get_portfolio_summary(db, customer_id),
+        "asset_events": get_asset_events(db, customer_id),
+        "population": population,
         "memory": get_customer_memory(db, customer_id),
     }
