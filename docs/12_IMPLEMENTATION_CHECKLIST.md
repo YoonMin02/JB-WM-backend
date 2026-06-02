@@ -76,10 +76,10 @@
   - [x] `PlanRecord`
   - [x] `PlanRecord` 1건과 `ActionProposal` N건의 관계 (`proposal_ids`로 추적)
 - [x] 대체 설계는 유지하지 않는다. `05_DATA_MODEL.md`는 실제 `NeedAssessmentRecord`/`PlanRecord` 테이블 기준으로 갱신했다.
-- [ ] `CustomerMemory.medical_willingness`를 의료비 감내 범위/지불의향으로 확장한다.
-  - [ ] enum(`conservative`/`moderate`/`aggressive`)만 둘지, 금액대/월 현금흐름 비율/일회성 부담 한도를 같이 둘지 결정한다.
-  - [ ] 의료 관련 plan이 비용 범위별 재무 시나리오를 생성하도록 `Plan`/`ActionProposal` 스키마 확장을 검토한다.
-  - [ ] 치료법 추천 금지와 비용 범위별 시나리오 허용을 프롬프트와 테스트에 반영한다.
+- [x] `CustomerMemory.medical_willingness`를 의료비 감내 범위/지불의향으로 확장한다.
+  - [x] enum(`conservative`/`moderate`/`aggressive`)에 금액대/월 현금흐름 비율/일회성 부담 한도를 같이 둔다.
+  - [x] 의료 관련 plan이 비용 범위별 재무 시나리오를 생성하도록 `Plan`/`ActionProposal` 파라미터에 의료비 감내 범위를 반영한다.
+  - [x] 치료법 추천 금지와 비용 범위별 시나리오 허용을 프롬프트와 테스트에 반영한다.
 
 ## Frontend Dependencies
 

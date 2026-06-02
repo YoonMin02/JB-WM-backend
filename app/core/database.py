@@ -40,6 +40,20 @@ def _reconcile_mvp_schema() -> None:
         if "active_needs" not in columns:
             conn.execute(text("ALTER TABLE agentsession ADD COLUMN active_needs JSON"))
 
+    if inspector.has_table("customermemory"):
+        memory_columns = {col["name"] for col in inspector.get_columns("customermemory")}
+        with engine.begin() as conn:
+            if "medical_one_time_budget_krw" not in memory_columns:
+                conn.execute(
+                    text("ALTER TABLE customermemory ADD COLUMN medical_one_time_budget_krw NUMERIC DEFAULT 0")
+                )
+            if "monthly_medical_budget_krw" not in memory_columns:
+                conn.execute(
+                    text("ALTER TABLE customermemory ADD COLUMN monthly_medical_budget_krw NUMERIC DEFAULT 0")
+                )
+            if "medical_budget_ratio" not in memory_columns:
+                conn.execute(text("ALTER TABLE customermemory ADD COLUMN medical_budget_ratio FLOAT DEFAULT 0"))
+
 
 def get_session() -> Iterator[Session]:
     """FastAPI 의존성: 요청 단위 DB 세션."""

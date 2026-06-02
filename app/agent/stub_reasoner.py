@@ -8,6 +8,10 @@ from __future__ import annotations
 from app.agent.schemas import ActionProposalSchema, NeedAssessment, Plan
 
 
+def _format_krw(value: int | float) -> str:
+    return f"{int(value):,}원"
+
+
 class StubReasoner:
     async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         payload = signal.get("payload", {})
@@ -89,6 +93,10 @@ class StubReasoner:
 
         insurance = ctx.get("insurance", {})
         gap = insurance.get("gaps_hint", "심혈관 특약 없음")
+        willingness = memory.get("medical_willingness", "moderate")
+        one_time_budget = int(memory.get("medical_one_time_budget_krw") or 0)
+        monthly_budget = int(memory.get("monthly_medical_budget_krw") or 0)
+        budget_ratio = float(memory.get("medical_budget_ratio") or 0)
 
         proposals = [
             # 부작용 없는 분석 → AutoExecutable
@@ -96,20 +104,34 @@ class StubReasoner:
                 kind="report",
                 summary=f"실손보험 보장 공백 분석 리포트 ({gap})",
                 has_external_effect=False,
-                rationale="현재 보장 범위와 건강 이벤트를 매칭한 분석 결과입니다.",
+                rationale="현재 보장 범위와 건강 이벤트, 의료비 감내 범위를 매칭한 분석 결과입니다.",
             ),
             # 외부 효과 있음 → NeedApproval (고객 승인 필요)
             ActionProposalSchema(
                 kind="review_insurance",
                 summary="심혈관 관련 실손 보험 청구 서류를 준비·접수합니다.",
                 has_external_effect=True,
-                params={"coverage": "실손", "reason": gap},
-                rationale="보장 가능성이 있어 청구 절차 진행을 제안합니다. 실제 접수 전 고객 승인이 필요합니다.",
+                params={
+                    "coverage": "실손",
+                    "reason": gap,
+                    "willingness": willingness,
+                    "one_time_budget_krw": one_time_budget,
+                    "monthly_budget_krw": monthly_budget,
+                    "budget_ratio": budget_ratio,
+                },
+                rationale=(
+                    "보장 가능성이 있어 청구 절차 진행을 제안합니다. "
+                    "실제 접수 전 고객 승인이 필요합니다."
+                ),
             ),
         ]
 
         # 개인화: 투자 보류 제약이 있으면 투자 관련 제안을 추가하지 않음 (이미 미포함)
-        explanation = "건강 이벤트와 보험 공백을 근거로 보험 점검·청구를 제안합니다."
+        explanation = (
+            "건강 이벤트와 보험 공백을 근거로 보험 점검·청구를 제안합니다. "
+            f"의료비 감내범위=일회성 {_format_krw(one_time_budget)}, "
+            f"월 {_format_krw(monthly_budget)}, 현금흐름 {budget_ratio * 100:.0f}%."
+        )
         if memory.get("constraints", {}).get("투자") == "보류":
             explanation += " (고객 제약에 따라 투자 조정 제안은 제외했습니다.)"
         return Plan(proposals=proposals, explanation=explanation, assessment=assessment)
@@ -122,6 +144,9 @@ class StubReasoner:
         high_risk = ctx.get("portfolio", {}).get("high_risk_weight", 0)
         gap = ctx.get("insurance", {}).get("gaps_hint")
         willingness = memory.get("medical_willingness", "moderate")
+        one_time_budget = int(memory.get("medical_one_time_budget_krw") or 0)
+        monthly_budget = int(memory.get("monthly_medical_budget_krw") or 0)
+        budget_ratio = float(memory.get("medical_budget_ratio") or 0)
         invest_hold = memory.get("constraints", {}).get("투자") == "보류"
 
         anchor = (
@@ -143,7 +168,16 @@ class StubReasoner:
                 kind="cashflow_plan",
                 summary="3개월 비상자금 확보 플랜 생성",
                 has_external_effect=False,
-                rationale="상환·잠재 의료비 대비 현금흐름 플랜.",
+                params={
+                    "one_time_medical_budget_krw": one_time_budget,
+                    "monthly_medical_budget_krw": monthly_budget,
+                    "medical_budget_ratio": budget_ratio,
+                },
+                rationale=(
+                    "상환·잠재 의료비 대비 현금흐름 플랜. "
+                    f"고객 의료비 감내범위는 일회성 {_format_krw(one_time_budget)}, "
+                    f"월 {_format_krw(monthly_budget)}, 현금흐름 {budget_ratio * 100:.0f}%입니다."
+                ),
             ),
         ]
 
@@ -154,13 +188,23 @@ class StubReasoner:
                     kind="review_insurance",
                     summary=f"보장 공백({gap}) 점검 및 청구 가능성 확인",
                     has_external_effect=True,
-                    params={"coverage": "실손", "willingness": willingness},
+                    params={
+                        "coverage": "실손",
+                        "willingness": willingness,
+                        "one_time_budget_krw": one_time_budget,
+                        "monthly_budget_krw": monthly_budget,
+                        "budget_ratio": budget_ratio,
+                    },
                     rationale="의료비 대비 보장을 점검합니다. 실제 청구 접수 전 고객 승인 필요.",
                 )
             )
 
         # 개인화: 투자 보류가 아니면 리밸런싱 제안(외부 효과). 보류면 제외.
-        explanation = f"자산 손실·현금흐름 압박을 통계 기준에 앵커해 대비책을 제안합니다. 지불의향={willingness}."
+        explanation = (
+            "자산 손실·현금흐름 압박을 통계 기준에 앵커해 대비책을 제안합니다. "
+            f"지불의향={willingness}, 의료비 감내범위=일회성 {_format_krw(one_time_budget)}, "
+            f"월 {_format_krw(monthly_budget)}, 현금흐름 {budget_ratio * 100:.0f}%."
+        )
         if not invest_hold:
             proposals.append(
                 ActionProposalSchema(

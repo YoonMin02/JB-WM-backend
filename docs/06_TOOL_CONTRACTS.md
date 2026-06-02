@@ -117,7 +117,16 @@ agent tool은 provider 원문 응답을 그대로 노출하지 않고, [`APIs/AG
 ### get_customer_memory
 ```
 입력:  { customer_id: str }
-출력:  { medical_willingness, risk_preference, hospital_preference, investment_style, constraints }
+출력:  {
+        medical_willingness,
+        medical_one_time_budget_krw,
+        monthly_medical_budget_krw,
+        medical_budget_ratio,
+        risk_preference,
+        hospital_preference,
+        investment_style,
+        constraints
+      }
 용도:  개인화 (계획 생성 시 반영, 지불의향 포함) — 08 참고
 ```
 

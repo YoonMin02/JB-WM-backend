@@ -206,6 +206,9 @@ def seed_if_empty() -> str | None:
         db.add(
             CustomerMemory(
                 customer_id=c.id, medical_willingness="conservative", risk_preference="low",
+                medical_one_time_budget_krw=Decimal(1_500_000),
+                monthly_medical_budget_krw=Decimal(250_000),
+                medical_budget_ratio=0.08,
                 hospital_preference="전북대학교병원", investment_style="stable",
                 constraints={"투자": "보류"},
             )

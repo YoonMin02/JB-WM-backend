@@ -124,6 +124,9 @@ erDiagram
 |---|---|---|
 | customer_id | uuid | PK/FK |
 | **medical_willingness** | str | **지불의향** `conservative`/`moderate`/`aggressive` — 1급 개인화 변수 ([08](08_MEMORY.md)) |
+| medical_one_time_budget_krw | decimal | 고객이 감내 가능한 일회성 의료비 부담 한도 |
+| monthly_medical_budget_krw | decimal | 고객이 감내 가능한 월 의료비/건강 관련 지출 한도 |
+| medical_budget_ratio | float | 월 현금흐름 대비 의료비 부담 허용 비율 |
 | risk_preference | str | `low`/`mid`/`high` |
 | hospital_preference | str | 예: "전북대학교병원" |
 | investment_style | str | `stable`/`balanced`/`aggressive` |

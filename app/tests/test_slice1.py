@@ -200,6 +200,9 @@ async def test_asset_trigger_resilience(db: Session):
     assert kinds["report"].status == "executed"
     assert kinds["cashflow_plan"].status == "executed"
     assert kinds["review_insurance"].has_external_effect is True
+    assert kinds["review_insurance"].params["one_time_budget_krw"] == 1_500_000
+    assert kinds["review_insurance"].params["monthly_budget_krw"] == 250_000
+    assert kinds["cashflow_plan"].params["medical_budget_ratio"] == 0.08
     assert "rebalance_portfolio" not in kinds
 
     done = await Orchestrator().apply_decision(db, r, "approve")
@@ -307,6 +310,9 @@ def test_financial_read_tools_hide_provider_identifiers(db: Session):
     assert card_bills["upcoming_card_payment_krw"] > 0
     assert precheck["repayment_available"] is True
     assert "accounts" in context and "transactions" in context and "card_bills" in context
+    assert context["memory"]["medical_one_time_budget_krw"] == 1_500_000
+    assert context["memory"]["monthly_medical_budget_krw"] == 250_000
+    assert context["memory"]["medical_budget_ratio"] == 0.08
 
     serialized = str({"balances": balances, "transactions": transactions, "card_bills": card_bills, "precheck": precheck})
     for hidden in ("fintech_use_num", "user_seq_no", "card_value", "api_tran_id", "bank_tran_id"):

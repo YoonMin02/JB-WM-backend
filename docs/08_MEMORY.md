@@ -46,6 +46,9 @@ flowchart TB
 ```json
 {
   "medical_willingness": "conservative",
+  "medical_one_time_budget_krw": 1500000,
+  "monthly_medical_budget_krw": 250000,
+  "medical_budget_ratio": 0.08,
   "risk_preference": "low",
   "hospital_preference": "전북대학교병원",
   "investment_style": "stable",
@@ -55,7 +58,17 @@ flowchart TB
 
 ### 의료비 감내 범위 / 지불 의향 (medical_willingness) — 1급 개인화 변수
 
-"의료/대응에 얼마까지 쓸 용의가 있는가", "어떤 부담은 심리적으로 피하고 싶은가"(`conservative` / `moderate` / `aggressive` 또는 금액대). 이것이:
+"의료/대응에 얼마까지 쓸 용의가 있는가", "어떤 부담은 심리적으로 피하고 싶은가"를
+`medical_willingness`와 금액/비율 필드로 함께 표현합니다.
+
+| 필드 | 의미 |
+|---|---|
+| `medical_willingness` | 정성적 지불의향: `conservative` / `moderate` / `aggressive` |
+| `medical_one_time_budget_krw` | 일회성 의료비 부담 한도 |
+| `monthly_medical_budget_krw` | 월 의료비/건강 관련 지출 한도 |
+| `medical_budget_ratio` | 월 현금흐름 대비 의료비 부담 허용 비율 |
+
+이것이:
 - **개인화의 축**: 같은 건강·자산 상황도 지불의향에 따라 다른 제안이 나온다.
 - **의료 경계의 한 축**: 회사는 "치료하세요"가 아니라 *"의료진과 상의할 비용 범위를, 당신이 정한 예산 하에서 이렇게 대비할 수 있습니다"* 라고 말한다 ([10](10_SECURITY_PRIVACY.md), [01](01_PRODUCT_CONTEXT.md)).
 

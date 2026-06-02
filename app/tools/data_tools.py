@@ -191,6 +191,9 @@ def get_customer_memory(db: Session, customer_id: str) -> dict:
         return {}
     return {
         "medical_willingness": m.medical_willingness,  # 지불의향 (개인화 1급)
+        "medical_one_time_budget_krw": int(m.medical_one_time_budget_krw),
+        "monthly_medical_budget_krw": int(m.monthly_medical_budget_krw),
+        "medical_budget_ratio": m.medical_budget_ratio,
         "risk_preference": m.risk_preference,
         "hospital_preference": m.hospital_preference,
         "investment_style": m.investment_style,
