@@ -47,6 +47,13 @@ class SignalIn(BaseModel):
 def create_session(customer_id: str, db: Session = Depends(db_session)) -> dict:
     if not db.get(Customer, customer_id):
         raise HTTPException(404, "고객을 찾을 수 없습니다.")
+    existing = db.exec(
+        select(AgentSession)
+        .where(AgentSession.customer_id == customer_id)
+        .order_by(AgentSession.created_at.desc())
+    ).first()
+    if existing:
+        return serialize_session(db, existing)
     s = AgentSession(customer_id=customer_id, state=State.MONITORING)
     db.add(s)
     db.commit()

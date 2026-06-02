@@ -134,3 +134,21 @@ def test_population_stat_tool(db: Session):
     stat = get_population_stat(db, "65-69", "avg_emergency_fund_months")
     assert stat["value"]["months"] == 6
     assert stat["source"]
+
+
+def test_customer_portfolio_route_contract(db: Session):
+    from app.api.routes.customers import customer_portfolio
+
+    portfolio = customer_portfolio(_customer_id(db), db)
+    assert portfolio["total_value"] == 100_000_000
+    assert portfolio["high_risk_weight"] == 0.7
+
+
+def test_customer_agent_session_is_reused(db: Session):
+    from app.api.routes.sessions import create_session
+
+    customer_id = _customer_id(db)
+    first = create_session(customer_id, db)
+    second = create_session(customer_id, db)
+    assert first["session_id"] == second["session_id"]
+    assert first["customer_id"] == customer_id

@@ -35,6 +35,11 @@ def customer_insurance(customer_id: str, db: Session = Depends(db_session)) -> d
     return data_tools.get_insurance_summary(db, customer_id)
 
 
+@router.get("/{customer_id}/portfolio")
+def customer_portfolio(customer_id: str, db: Session = Depends(db_session)) -> dict:
+    return data_tools.get_portfolio_summary(db, customer_id)
+
+
 @router.get("/{customer_id}/loans")
 def customer_loans(customer_id: str, db: Session = Depends(db_session)) -> dict:
     return data_tools.get_loan_status(db, customer_id)
