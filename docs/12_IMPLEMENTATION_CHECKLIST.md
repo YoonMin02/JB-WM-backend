@@ -8,7 +8,7 @@
 - [ ] `AgentReasoner` 포트에 세션 생명주기 메서드를 명확히 둔다.
   - `start_session(customer_id, system/context) -> thread_id`
   - `resume_session(thread_id)`
-  - `infer_intent(...)`
+  - `assess_need(...)`
   - `generate_plan(...)`
 - [ ] `AgentSession.agent_thread_id`에 Codex thread id를 저장한다.
 - [ ] 기본은 고객 1명당 active holistic `AgentSession` 1개로 제한한다.
@@ -24,7 +24,7 @@
 - [ ] 고객 발화, 시스템 신호, Codex 최종 응답/요약, 생성된 intent/plan을 append-only로 저장할 테이블을 추가한다.
 - [ ] 가능한 모델 예시:
   - `AgentMessage`: `session_id`, `role`, `content`, `metadata`, `created_at`
-  - `IntentRecord`: `session_id`, `state`, `confidence`, `rationale`, `raw_output`, `created_at`
+  - `NeedAssessmentRecord`: `session_id`, `needs`, `primary_need`, `confidence`, `rationale`, `raw_output`, `created_at`
   - `PlanRecord`: `session_id`, `explanation`, `raw_output`, `created_at`
 - [ ] `AgentEvent`는 타임라인/감사용 이벤트로 유지하고, 전문 대화 저장과 역할을 분리한다.
 - [ ] 개인정보/민감정보 보유기간과 동의 철회 시 파기 정책을 반영한다.
@@ -68,12 +68,12 @@
 
 ## Data Model Alignment
 
-- [ ] 문서의 `Intent`/`Plan` 엔티티를 실제 테이블로 만들지, `AgentEvent`/`ActionProposal`로 대체할지 결정한다.
+- [ ] 문서의 `NeedAssessment`/`Plan` 엔티티를 실제 테이블로 만들지, `AgentEvent`/`ActionProposal`로 대체할지 결정한다.
 - [ ] 실제 테이블을 만들 경우:
-  - [ ] `IntentRecord`
+  - [ ] `NeedAssessmentRecord`
   - [ ] `PlanRecord`
   - [ ] `PlanRecord` 1건과 `ActionProposal` N건의 관계
-- [ ] 대체 설계를 유지할 경우 `05_DATA_MODEL.md`에서 `Intent`/`Plan` 테이블 표현을 제거하거나 "개념 모델"로 명확히 표시한다.
+- [ ] 대체 설계를 유지할 경우 `05_DATA_MODEL.md`에서 `NeedAssessment`/`Plan` 테이블 표현을 제거하거나 "개념 모델"로 명확히 표시한다.
 - [ ] `CustomerMemory.medical_willingness`를 의료비 감내 범위/지불의향으로 확장한다.
   - [ ] enum(`conservative`/`moderate`/`aggressive`)만 둘지, 금액대/월 현금흐름 비율/일회성 부담 한도를 같이 둘지 결정한다.
   - [ ] 의료 관련 plan이 비용 범위별 재무 시나리오를 생성하도록 `Plan`/`ActionProposal` 스키마 확장을 검토한다.

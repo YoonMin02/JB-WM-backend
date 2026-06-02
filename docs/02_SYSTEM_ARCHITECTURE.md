@@ -87,8 +87,8 @@ sequenceDiagram
     SRC->>ORCH: 신호(자산 변동 선제 / 건강 제출 / 자연어)
     ORCH->>FSM: Monitoring → SignalDetected
     ORCH->>R: 의도 추론 (read-only 도구 — 건강·자산 통합)
-    R-->>ORCH: Intent + 근거
-    ORCH->>FSM: → *Intent → GeneratePlan
+    R-->>ORCH: NeedAssessment + 근거
+    ORCH->>FSM: → AssessNeed → GeneratePlan
     ORCH->>R: 계획 생성 (+장기 메모리·지불의향 반영)
     R-->>ORCH: Plan(ActionProposal[])
     ORCH->>POL: RiskCheck

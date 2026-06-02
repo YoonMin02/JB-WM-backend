@@ -1,60 +1,89 @@
 """StubReasoner — 결정론적 가짜 추론기.
 
-Codex 호출 없이 슬라이스 1 루프를 끝까지 돌리고 테스트하기 위한 구현.
+Codex 호출 없이 핵심 루프를 끝까지 돌리고 테스트하기 위한 구현.
 실제 추론은 CodexReasoner가 담당. 둘 다 동일한 AgentReasoner 포트를 구현한다.
 """
 from __future__ import annotations
 
-from app.agent.schemas import ActionProposalSchema, IntentInference, Plan
+from app.agent.schemas import ActionProposalSchema, NeedAssessment, Plan
 
 
 class StubReasoner:
-    async def infer_intent(self, signal: dict, ctx: dict) -> IntentInference:
+    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
         payload = signal.get("payload", {})
         kind = str(payload.get("kind", "")).lower()
         text = str(payload.get("text", "")).lower()
         insurance = ctx.get("insurance", {})
         has_gap = bool(insurance.get("gaps_hint"))
 
-        # 자산 신호(손실/상환압박/지출급증/소득감소) → AssetDefenseIntent (선제 메인)
+        # 자산 신호(손실/상환압박/지출급증/소득감소) → 통합 필요도 평가 (선제 메인)
         asset_signal = any(
             k in kind for k in ("portfolio_loss", "repayment", "spending", "income_drop")
         ) or any(w in text for w in ("지출", "상환", "손실"))
         if asset_signal:
-            return IntentInference(
-                state="AssetDefenseIntent",
+            return NeedAssessment(
+                primary_need="cashflow",
+                medical_cost_need="mid",
+                insurance_need="mid" if has_gap else "low",
+                cashflow_need="high",
+                asset_defense_need="high",
+                investment_adjust_need="low",
+                life_plan_need="low",
                 confidence=0.84,
                 rationale="자산 변동(손실/현금흐름 압박)이 감지되어, 의료비 대비를 포함한 현금흐름 방어가 필요합니다.",
             )
 
-        # 건강 이벤트(혈압/수면/의료비) + 보험 공백 → InsuranceIntent
+        # 건강 이벤트(혈압/수면/의료비) + 보험 공백 → 의료비/보험 필요도 상승
         health_signal = any(k in kind for k in ("bp_", "sleep", "med_cost", "health"))
         if health_signal and has_gap:
-            return IntentInference(
-                state="InsuranceIntent",
+            return NeedAssessment(
+                primary_need="insurance",
+                medical_cost_need="mid",
+                insurance_need="high",
+                cashflow_need="mid",
+                asset_defense_need="low",
+                investment_adjust_need="none",
+                life_plan_need="low",
                 confidence=0.82,
                 rationale="건강 이벤트가 감지되었고 현재 보험에 관련 보장 공백이 있어 보험 점검이 필요합니다.",
             )
         if "보험" in text or "insurance" in text:
-            return IntentInference(
-                state="InsuranceIntent", confidence=0.7, rationale="고객이 보험 확인을 요청했습니다."
+            return NeedAssessment(
+                primary_need="insurance",
+                insurance_need="high",
+                medical_cost_need="low",
+                cashflow_need="low",
+                confidence=0.7,
+                rationale="고객이 보험 확인을 직접 요청했습니다.",
             )
         if health_signal:
-            return IntentInference(
-                state="HealthCareIntent", confidence=0.6, rationale="건강 이벤트 감지."
+            return NeedAssessment(
+                primary_need="medical_cost",
+                medical_cost_need="mid",
+                insurance_need="low",
+                cashflow_need="low",
+                confidence=0.6,
+                rationale="건강 이벤트가 감지되어 의료비 감내 범위 검토가 필요합니다.",
             )
-        return IntentInference(
-            state="IntentUnknown",
+        if "보수" in text or "투자" in text:
+            return NeedAssessment(
+                primary_need="preference_update",
+                investment_adjust_need="low",
+                preference_update_only=True,
+                confidence=0.72,
+                rationale="고객 발화가 투자 성향/제약 변경에 가깝습니다.",
+            )
+        return NeedAssessment(
             confidence=0.3,
             rationale="신호만으로 의도를 특정하기 어렵습니다.",
             clarifying_question="어떤 부분을 먼저 봐드릴까요? (보험 / 현금흐름 / 투자)",
         )
 
-    async def generate_plan(self, intent: IntentInference, ctx: dict, memory: dict) -> Plan:
-        if intent.state == "AssetDefenseIntent":
-            return self._asset_defense_plan(ctx, memory)
-        if intent.state != "InsuranceIntent":
-            return Plan(explanation=f"{intent.state}는 아직 미구현입니다 (슬라이스 1~2 범위 밖).")
+    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+        if assessment.cashflow_need in ("mid", "high") or assessment.asset_defense_need in ("mid", "high"):
+            return self._asset_defense_plan(assessment, ctx, memory)
+        if assessment.insurance_need == "none" and assessment.medical_cost_need == "none":
+            return Plan(assessment=assessment, explanation="실행 가능한 필요도가 낮아 제안을 생성하지 않았습니다.")
 
         insurance = ctx.get("insurance", {})
         gap = insurance.get("gaps_hint", "심혈관 특약 없음")
@@ -81,9 +110,9 @@ class StubReasoner:
         explanation = "건강 이벤트와 보험 공백을 근거로 보험 점검·청구를 제안합니다."
         if memory.get("constraints", {}).get("투자") == "보류":
             explanation += " (고객 제약에 따라 투자 조정 제안은 제외했습니다.)"
-        return Plan(proposals=proposals, explanation=explanation)
+        return Plan(proposals=proposals, explanation=explanation, assessment=assessment)
 
-    def _asset_defense_plan(self, ctx: dict, memory: dict) -> Plan:
+    def _asset_defense_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
         """자산 트리거 → 통합 회복탄력성 계획. 통계 앵커 + 지불의향·제약 개인화."""
         pop = ctx.get("population", {})
         avg_fund = pop.get("avg_emergency_fund_months", {}).get("value", {}).get("months")
@@ -143,4 +172,4 @@ class StubReasoner:
             explanation += " (고객 제약 '투자 보류'에 따라 리밸런싱 제안은 제외)"
 
         # 의료 경계: 의료 권고가 아니라 '재무 대비 + 통계 참고'만. 처치 권고 없음.
-        return Plan(proposals=proposals, explanation=explanation)
+        return Plan(proposals=proposals, explanation=explanation, assessment=assessment)

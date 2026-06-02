@@ -18,7 +18,7 @@ erDiagram
     PortfolioAccount ||--o{ Holding : contains
     InsurancePolicy ||--o{ CoverageItem : contains
     AgentSession ||--o{ Signal : receives
-    AgentSession ||--o{ Intent : infers
+    AgentSession ||--o{ NeedAssessment : assesses
     AgentSession ||--o{ Plan : generates
     Plan ||--o{ ActionProposal : contains
     ActionProposal ||--o| ApprovalDecision : has
@@ -153,12 +153,22 @@ erDiagram
 | payload | json | 이벤트 데이터 또는 발화 |
 | created_at | datetime | |
 
-### Intent
+### NeedAssessment (개념 / 기록 후보)
+
+현재 MVP 코드는 별도 테이블 없이 `AgentEvent(type="need_assessment")`에 평가 결과를 JSON으로
+기록합니다. 실서비스에서는 감사·재현성을 위해 별도 테이블로 분리할 수 있습니다.
+
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | uuid | PK |
 | session_id | uuid | FK |
-| state | str | `*Intent` 중 하나 |
+| medical_cost_need | str | `none`/`low`/`mid`/`high` |
+| insurance_need | str | `none`/`low`/`mid`/`high` |
+| cashflow_need | str | `none`/`low`/`mid`/`high` |
+| asset_defense_need | str | `none`/`low`/`mid`/`high` |
+| investment_adjust_need | str | `none`/`low`/`mid`/`high` |
+| life_plan_need | str | `none`/`low`/`mid`/`high` |
+| primary_need | str | UI/설명용 주 관심축 |
 | confidence | float | |
 | rationale | str | 근거 (설명가능성) |
 

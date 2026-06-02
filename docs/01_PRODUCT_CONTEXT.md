@@ -141,11 +141,13 @@ flowchart LR
 ```
 고객이 "현금흐름이랑 보장만"이라고 하면 상태가:
 ```
-AssetDefenseIntent  → Approved
-InsuranceIntent     → Approved
-InvestmentAdjustIntent → Deferred (성향: 투자 보류)
+NeedAssessment:
+  cashflow_need          = high
+  insurance_need         = high
+  asset_defense_need     = mid
+  investment_adjust_need = low/deferred (성향: 투자 보류)
 ```
-**이것이 "고객 의도가 상태로 표현된다"는 의미입니다.**
+**이것이 "고객이 고민을 분류하지 않아도 agent가 통합 필요도를 평가한다"는 의미입니다.**
 
 ## MVP 비목표
 

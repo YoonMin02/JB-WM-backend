@@ -64,7 +64,7 @@ class ActionExecution(SQLModel, table=True):
 
 
 class AgentEvent(SQLModel, table=True):
-    """감사 로그 — Signal→Intent→Plan→Approval→Execution 전 구간."""
+    """감사 로그 — Signal→NeedAssessment→Plan→Approval→Execution 전 구간."""
 
     id: str = Field(default_factory=new_uuid, primary_key=True)
     session_id: str = Field(foreign_key="agentsession.id", index=True)

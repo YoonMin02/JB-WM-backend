@@ -66,7 +66,7 @@ thread = await codex.thread_resume(session.agent_thread_id)
 ```python
 result = await thread.run(
     prompt,
-    output_schema=IntentInference.model_json_schema(),   # 구조화 출력
+    output_schema=NeedAssessment.model_json_schema(),   # 구조화 출력
 )
 result.final_response   # str | None
 result.items            # list[ThreadItem]
@@ -151,7 +151,7 @@ stub reasoner는 호출 비용이 없으므로 가드 대상이 아닙니다. �
 app/agent/
 ├── runtime.py          # AgentReasoner 포트 (공급자 무관) + Orchestrator
 ├── codex_adapter.py    # ★ 유일한 openai_codex import 지점
-├── schemas.py          # IntentInference / Plan / ActionProposal
+├── schemas.py          # NeedAssessment / Plan / ActionProposal
 └── prompts.py          # SYSTEM_INSTRUCTIONS
 ```
 

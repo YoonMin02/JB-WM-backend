@@ -1,7 +1,7 @@
 """Orchestrator — 에이전트 루프를 FSM/Policy/Executor로 라우팅.
 
 reasoner(LLM)는 판단·계획만 한다. 상태 전이·실행은 여기(코드)가 통제한다.
-슬라이스 1: InsuranceIntent 경로를 끝까지 관통.
+AssessNeed: 고객 신호를 단일 intent로 좁히지 않고 통합 필요도로 평가한다.
 (docs/02_SYSTEM_ARCHITECTURE, 03_STATE_MACHINE, 04_AGENT_RUNTIME)
 """
 from __future__ import annotations
@@ -9,14 +9,14 @@ from __future__ import annotations
 from sqlmodel import Session
 
 from app.agent.runtime import AgentReasoner, get_reasoner
-from app.agent.schemas import Plan
+from app.agent.schemas import NeedAssessment, Plan
 from app.executor.handlers import execute as executor_execute
 from app.models.agent import ActionProposal, AgentSession, Signal
 from app.models.base import utcnow
 from app.models.memory import CustomerMemory
 from app.policy.engine import evaluate
 from app.state_machine.machine import log_event, transition
-from app.state_machine.states import INTENT_STATES, State
+from app.state_machine.states import State
 from app.tools.data_tools import build_context
 
 
@@ -25,41 +25,47 @@ class Orchestrator:
         self.reasoner = reasoner or get_reasoner()
 
     async def handle_signal(self, db: Session, session: AgentSession, source: str, payload: dict) -> AgentSession:
-        """신호 수신 → 의도추론 → 계획 → 리스크검토 → (자동실행 | 승인대기)."""
+        """신호 수신 → 필요도 평가 → 계획 → 리스크검토 → (자동실행 | 승인대기)."""
         db.add(Signal(session_id=session.id, source=source, payload=payload))
         db.commit()
 
         transition(db, session, State.SIGNAL_DETECTED, detail={"source": source})
+        transition(db, session, State.ASSESS_NEED)
 
         ctx = build_context(db, session.customer_id)
         log_event(db, session.id, "tool_call", {"tool": "build_context"})
 
-        intent = await self.reasoner.infer_intent({"source": source, "payload": payload}, ctx)
-        log_event(db, session.id, "intent", intent.model_dump())
+        assessment = await self.reasoner.assess_need({"source": source, "payload": payload}, ctx)
+        log_event(db, session.id, "need_assessment", assessment.model_dump())
 
-        if intent.is_unknown:
-            transition(db, session, State.INTENT_UNKNOWN)
-            transition(db, session, State.CLARIFY_USER, detail={"question": intent.clarifying_question})
-            session.recent_context = {"clarifying_question": intent.clarifying_question}
+        if assessment.needs_clarification:
+            transition(db, session, State.CLARIFY_USER, detail={"question": assessment.clarifying_question})
+            session.recent_context = {
+                "clarifying_question": assessment.clarifying_question,
+                "assessment": assessment.model_dump(),
+            }
             db.add(session)
             db.commit()
             db.refresh(session)
             return session
 
-        intent_state = State(intent.state)
-        if intent_state not in INTENT_STATES:
-            # 안전망: 알 수 없는 의도면 명확화로
-            transition(db, session, State.INTENT_UNKNOWN)
-            return session
-
-        transition(db, session, intent_state, detail={"rationale": intent.rationale})
-        session.active_intents = {"primary": intent.state}
+        session.active_intents = {"primary_need": assessment.primary_need, "needs": self._need_levels(assessment)}
+        session.recent_context = {"assessment": assessment.model_dump()}
         db.add(session)
         db.commit()
 
+        if assessment.preference_update_only:
+            transition(db, session, State.PREFERENCE_UPDATE, detail={"primary_need": assessment.primary_need})
+            return self._finish(db, session)
+
+        if assessment.no_action or not assessment.has_actionable_need:
+            transition(db, session, State.NO_ACTION, detail={"primary_need": assessment.primary_need})
+            return self._finish(db, session)
+
         # 계획 생성 (장기 메모리 반영 = 개인화)
         transition(db, session, State.GENERATE_PLAN)
-        plan = await self.reasoner.generate_plan(intent, ctx, ctx.get("memory", {}))
+        plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}))
+        plan.assessment = assessment
         log_event(db, session.id, "plan", plan.model_dump())
         proposals = self._persist_plan(db, session, plan)
 
@@ -141,11 +147,9 @@ class Orchestrator:
             transition(db, session, State.REVISE_PLAN, detail={"note": note})
             # 재계획: 의도 유지하고 plan 재생성
             ctx = build_context(db, session.customer_id)
-            from app.agent.schemas import IntentInference
-
-            intent = IntentInference(state=session.active_intents.get("primary", "InsuranceIntent"))
+            assessment = self._assessment_from_session(session)
             transition(db, session, State.GENERATE_PLAN)
-            plan = await self.reasoner.generate_plan(intent, ctx, ctx.get("memory", {}))
+            plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}))
             log_event(db, session.id, "plan", {"revised": True, **plan.model_dump()})
             proposals = self._persist_plan(db, session, plan)
             return await self._risk_route(db, session, proposals)
@@ -172,6 +176,26 @@ class Orchestrator:
         db.add(mem)
         db.commit()
         log_event(db, session.id, "memory", {"updated": True})
+
+    def _need_levels(self, assessment: NeedAssessment) -> dict[str, str]:
+        return {
+            "medical_cost_need": assessment.medical_cost_need,
+            "insurance_need": assessment.insurance_need,
+            "cashflow_need": assessment.cashflow_need,
+            "asset_defense_need": assessment.asset_defense_need,
+            "investment_adjust_need": assessment.investment_adjust_need,
+            "life_plan_need": assessment.life_plan_need,
+        }
+
+    def _assessment_from_session(self, session: AgentSession) -> NeedAssessment:
+        raw = session.recent_context.get("assessment") if session.recent_context else None
+        if isinstance(raw, dict):
+            return NeedAssessment.model_validate(raw)
+        needs = session.active_intents.get("needs", {}) if session.active_intents else {}
+        return NeedAssessment(
+            primary_need=session.active_intents.get("primary_need", "none") if session.active_intents else "none",
+            **{k: v for k, v in needs.items() if k.endswith("_need")},
+        )
 
 
 def evaluate_needs_approval(proposal: ActionProposal) -> bool:

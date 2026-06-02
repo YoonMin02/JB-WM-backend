@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from app.agent.schemas import IntentInference, Plan
+from app.agent.schemas import NeedAssessment, Plan
 
 
 class CustomerContext(Protocol):
@@ -24,12 +24,12 @@ class CustomerContext(Protocol):
 class AgentReasoner(Protocol):
     """추론 백엔드. 판단·계획만 한다. 상태 변경·실행은 하지 않는다."""
 
-    async def infer_intent(self, signal: dict, ctx: dict) -> IntentInference:
-        """신호 + 읽기 전용 컨텍스트 → 고객 의도 추론."""
+    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+        """신호 + 읽기 전용 컨텍스트 → 통합 필요도 평가."""
         ...
 
-    async def generate_plan(self, intent: IntentInference, ctx: dict, memory: dict) -> Plan:
-        """의도 + 컨텍스트 + 장기 메모리(개인화) → 액션 제안 계획."""
+    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+        """통합 필요도 평가 + 컨텍스트 + 장기 메모리(개인화) → 액션 제안 계획."""
         ...
 
 

@@ -14,7 +14,7 @@ import threading
 import time
 from pathlib import Path
 
-from app.agent.schemas import IntentInference, LLMPlan, Plan
+from app.agent.schemas import LLMPlan, NeedAssessment, Plan
 from app.core.config import settings
 from app.core.logging import logger
 
@@ -123,23 +123,27 @@ class CodexReasoner:
             logger.info("codex turn ok (thread=%s)", thread.id)
             return _parse(result.final_response, schema_model)
 
-    async def infer_intent(self, signal: dict, ctx: dict) -> IntentInference:
+    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
         prompt = (
-            "워크스페이스의 고객 데이터를 읽고, 아래 신호로부터 고객의 잠재 의도를 추론하세요.\n"
+            "워크스페이스의 고객 데이터를 읽고, 아래 신호로부터 고객의 통합 필요도를 평가하세요. "
+            "단일 intent로 좁히지 말고 medical_cost_need, insurance_need, cashflow_need, "
+            "asset_defense_need, investment_adjust_need, life_plan_need를 각각 none/low/mid/high로 "
+            "평가하세요. 고객이 직접 요청한 영역은 강하게 반영하되, 애매하면 clarifying_question을 작성하세요.\n"
             f"신호: {json.dumps(signal, ensure_ascii=False)}\n"
-            "IntentInference 스키마(JSON)로만 답하세요."
+            "NeedAssessment 스키마(JSON)로만 답하세요."
         )
-        return await self._run(prompt, ctx, IntentInference)
+        return await self._run(prompt, ctx, NeedAssessment)
 
-    async def generate_plan(self, intent: IntentInference, ctx: dict, memory: dict) -> Plan:
+    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
         prompt = (
             "워크스페이스의 고객 데이터(건강·자산 통합)와 통계(population.json), "
-            "장기 메모리(memory.json: 지불의향·성향·제약)를 반영하여 의도를 충족할 액션 제안 "
-            "계획을 만드세요. 외부 효과(예약·청구·구매·송금·포트폴리오 변경)가 있는 액션은 "
+            "장기 메모리(memory.json: 지불의향·성향·제약), 그리고 통합 필요도 평가를 반영하여 "
+            "액션 제안 계획을 만드세요. 판단 순서는 생애설계 필요성, 의료비, 보험, 현금흐름, "
+            "자산방어, 투자전략 종합입니다. 외부 효과(예약·청구·구매·송금·포트폴리오 변경)가 있는 액션은 "
             "has_external_effect=true로 표시하세요. 고객 제약(예: 투자 보류)은 반영해 해당 제안을 "
             "제외하세요. 의료 권고가 아니라 재무 대비·통계 참고만 합니다. 실제 실행은 하지 않습니다.\n"
-            f"의도: {intent.model_dump_json()}\n"
+            f"통합 필요도 평가: {assessment.model_dump_json()}\n"
             "LLMPlan 스키마(JSON)로만 답하세요."
         )
         llm_plan: LLMPlan = await self._run(prompt, ctx, LLMPlan)
-        return llm_plan.to_plan()
+        return llm_plan.to_plan(assessment=assessment)

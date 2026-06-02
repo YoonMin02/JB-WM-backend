@@ -21,9 +21,8 @@ Customer 1명
   └─ AgentMessage / AgentEvent
 ```
 
-`InsuranceIntent`, `AssetDefenseIntent` 같은 intent는 전문 agent 라우팅 키가 아닙니다.
-하나의 통합 agent가 이번 turn에서 가장 우선되는 니즈와 상태 전이 경로를 표현하기 위한
-라벨입니다.
+하나의 통합 agent는 `AssessNeed` 단계에서 여러 필요도를 함께 평가합니다. 이 평가 결과는
+FSM 상태가 아니라 `NeedAssessment` 구조화 출력입니다.
 
 ## LLM이 하는 일 vs 코드가 하는 일
 
@@ -46,7 +45,7 @@ Customer 1명
 ```python
 # app/agent/runtime.py  (개념 스케치)
 from typing import Protocol, Any
-from app.agent.schemas import IntentInference, Plan
+from app.agent.schemas import NeedAssessment, Plan
 
 class AgentReasoner(Protocol):
     """공급자 무관 추론 인터페이스. Codex/Gemini/Anthropic 등이 구현."""
@@ -59,16 +58,16 @@ class AgentReasoner(Protocol):
         """기존 세션 재개."""
         ...
 
-    async def infer_intent(self, signal: dict) -> IntentInference:
-        """신호로부터 고객 의도 추론 (read-only 도구 사용 가능)."""
+    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+        """신호로부터 통합 필요도 평가 (read-only 도구 사용 가능)."""
         ...
 
-    async def generate_plan(self, intent: IntentInference, memory: dict) -> Plan:
-        """의도 + 장기 메모리(개인화) → 액션 제안 계획."""
+    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+        """필요도 평가 + 장기 메모리(개인화) → 액션 제안 계획."""
         ...
 ```
 
-- 반환은 **구조화 스키마**(Pydantic). 자유 텍스트가 아니라 `IntentInference`, `Plan(ActionProposal[])`.
+- 반환은 **구조화 스키마**(Pydantic). 자유 텍스트가 아니라 `NeedAssessment`, `Plan(ActionProposal[])`.
 - 도구 호출은 어댑터 내부에서 일어나며, **읽기·분석·제안만** 가능 (실행 도구 없음 — [06](06_TOOL_CONTRACTS.md)).
 
 ## 에이전트 루프 (Orchestrator)
@@ -79,13 +78,13 @@ async def handle_signal(self, session, signal):
     self.fsm.to(session, "SignalDetected")
 
     ctx = self.tools.build_latest_customer_context(session.customer_id)
-    intent = await self.reasoner.infer_intent(signal, ctx)
-    if intent.is_unknown:
-        return self.ask_user(session, intent.clarifying_question)  # ClarifyUser
+    assessment = await self.reasoner.assess_need(signal, ctx)
+    if assessment.needs_clarification:
+        return self.ask_user(session, assessment.clarifying_question)  # ClarifyUser
 
-    self.fsm.to(session, intent.state)            # *Intent
     memory = self.memory.long_term(session.customer_id)
-    plan = await self.reasoner.generate_plan(intent, ctx, memory)  # GeneratePlan
+    self.fsm.to(session, "GeneratePlan")
+    plan = await self.reasoner.generate_plan(assessment, ctx, memory)
 
     routing = self.policy.evaluate(plan)          # RiskCheck
     if routing.needs_approval:
@@ -97,7 +96,7 @@ async def handle_signal(self, session, signal):
 
 LLM이 상태머신에 들어가는 곳은 두 군데가 중심입니다.
 
-1. `SignalDetected`에서 `IntentInference`를 생성해 다음 상태 후보를 제안합니다.
+1. `AssessNeed`에서 `NeedAssessment`를 생성해 명확화/성향변경/계획생성 분기의 입력을 제공합니다.
 2. `GeneratePlan`에서 `Plan(ActionProposal[])`을 생성합니다.
 
 전이는 LLM이 직접 수행하지 않습니다. Orchestrator가 reasoner 출력이 허용된 상태인지
@@ -121,9 +120,14 @@ reasoner는 JSON 스키마에 맞는 출력을 반환해야 합니다.
 
 ```python
 # app/agent/schemas.py  (개념)
-class IntentInference(BaseModel):
-    state: Literal["HealthCareIntent","InsuranceIntent","AssetDefenseIntent",
-                   "InvestmentAdjustIntent","LifePlanIntent","IntentUnknown"]
+class NeedAssessment(BaseModel):
+    medical_cost_need: Literal["none","low","mid","high"]
+    insurance_need: Literal["none","low","mid","high"]
+    cashflow_need: Literal["none","low","mid","high"]
+    asset_defense_need: Literal["none","low","mid","high"]
+    investment_adjust_need: Literal["none","low","mid","high"]
+    life_plan_need: Literal["none","low","mid","high"]
+    primary_need: str
     confidence: float
     rationale: str
     clarifying_question: str | None = None

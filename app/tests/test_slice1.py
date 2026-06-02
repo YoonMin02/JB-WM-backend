@@ -1,18 +1,13 @@
-"""슬라이스 1 종단 테스트 — StubReasoner로 InsuranceIntent 루프 1바퀴.
-
-SQLite in-memory로 DB 격리. PostgreSQL 불필요.
-"""
+"""핵심 루프 종단 테스트 — StubReasoner로 승인/통합 회복탄력성 루프 검증."""
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
 
 @pytest.fixture
-def client(monkeypatch):
-    # 격리된 in-memory DB로 교체
+def db(monkeypatch):
     import app.core.database as database
 
     test_engine = create_engine(
@@ -24,19 +19,30 @@ def client(monkeypatch):
 
     SQLModel.metadata.create_all(test_engine)
 
-    # seed / data_tools / orchestrator가 참조하는 engine도 교체
     import app.seed as seed_mod
 
     monkeypatch.setattr(seed_mod, "engine", test_engine)
+    seed_mod.seed_if_empty()
 
-    from app.main import app
-
-    with TestClient(app) as c:
-        yield c
+    with Session(test_engine) as session:
+        yield session
 
 
-def _seed_customer(client) -> str:
-    return client.get("/customers").json()[0]["id"]
+def _customer_id(db: Session) -> str:
+    from app.models.customer import Customer
+
+    return db.exec(select(Customer)).one().id
+
+
+def _new_session(db: Session):
+    from app.models.agent import AgentSession
+    from app.state_machine.states import State
+
+    s = AgentSession(customer_id=_customer_id(db), state=State.MONITORING)
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
 
 
 def test_capability_no_execution_tools():
@@ -48,100 +54,83 @@ def test_capability_no_execution_tools():
         assert not any(n.startswith(verb) for n in names), f"실행 도구 노출됨: {verb}"
 
 
-def test_slice1_insurance_approval_flow(client):
-    customer_id = _seed_customer(client)
+@pytest.mark.asyncio
+async def test_insurance_approval_flow(db: Session):
+    from app.agent.orchestrator import Orchestrator
+    from app.models.agent import ActionProposal, AgentEvent
 
-    # 1. 세션 생성 — Monitoring
-    s = client.post(f"/customers/{customer_id}/agent-sessions").json()
-    sid = s["session_id"]
-    assert s["state"] == "Monitoring"
+    s = _new_session(db)
 
-    # 2. 건강 이벤트 신호 주입 → InsuranceIntent → 계획 → 승인 대기
-    r = client.post(
-        f"/agent-sessions/{sid}/signals",
-        json={"source": "event", "payload": {"kind": "bp_rising"}},
-    ).json()
-    assert r["state"] == "UserApproval"
-    assert r["pending_proposal"] is not None
-    assert r["pending_proposal"]["has_external_effect"] is True
-    assert "approve" in r["allowed_actions"]
+    r = await Orchestrator().handle_signal(db, s, "event", {"kind": "bp_rising"})
+    assert r.state == "UserApproval"
+    assert r.pending_proposal_id is not None
+    assert r.active_intents["primary_need"] == "insurance"
+    assert r.active_intents["needs"]["insurance_need"] == "high"
 
-    # 부작용 없는 report 제안은 이미 자동 실행됨
-    proposals = client.get(f"/agent-sessions/{sid}/proposals").json()["proposals"]
-    assert any(p["kind"] == "report" and p["status"] == "executed" for p in proposals)
+    proposals = db.exec(select(ActionProposal).where(ActionProposal.session_id == r.id)).all()
+    assert any(p.kind == "report" and p.status == "executed" for p in proposals)
+    pending = db.get(ActionProposal, r.pending_proposal_id)
+    assert pending is not None
+    assert pending.has_external_effect is True
 
-    # 3. 고객 승인 → 실행(Executor, LLM 미경유) → 루프 종료 → Monitoring
-    pid = r["pending_proposal"]["id"]
-    done = client.post(f"/proposals/{pid}/approve").json()
-    assert done["state"] == "Monitoring"
-    assert done["pending_proposal"] is None
+    done = await Orchestrator().apply_decision(db, r, "approve")
+    assert done.state == "Monitoring"
+    assert done.pending_proposal_id is None
 
-    # 실행된 청구 제안 확인
-    proposals = client.get(f"/agent-sessions/{sid}/proposals").json()["proposals"]
-    claim = next(p for p in proposals if p["kind"] == "review_insurance")
-    assert claim["status"] == "executed"
+    db.refresh(pending)
+    assert pending.status == "executed"
 
-    # 4. 감사 타임라인에 전 구간 기록
-    events = client.get(f"/agent-sessions/{sid}/events").json()["events"]
-    types = [e["type"] for e in events]
-    assert "intent" in types and "plan" in types and "execution" in types
+    events = db.exec(select(AgentEvent).where(AgentEvent.session_id == r.id)).all()
+    types = [e.type for e in events]
+    assert "need_assessment" in types and "plan" in types and "execution" in types
     assert types.count("state_transition") >= 6
 
 
-def test_reject_flow(client):
-    customer_id = _seed_customer(client)
-    sid = client.post(f"/customers/{customer_id}/agent-sessions").json()["session_id"]
-    r = client.post(
-        f"/agent-sessions/{sid}/signals", json={"source": "event", "payload": {"kind": "bp_rising"}}
-    ).json()
-    pid = r["pending_proposal"]["id"]
-    done = client.post(f"/proposals/{pid}/reject").json()
-    assert done["state"] == "Monitoring"
-    proposals = client.get(f"/agent-sessions/{sid}/proposals").json()["proposals"]
-    claim = next(p for p in proposals if p["kind"] == "review_insurance")
-    assert claim["status"] == "rejected"
+@pytest.mark.asyncio
+async def test_reject_flow(db: Session):
+    from app.agent.orchestrator import Orchestrator
+    from app.models.agent import ActionProposal
+
+    s = _new_session(db)
+    r = await Orchestrator().handle_signal(db, s, "event", {"kind": "bp_rising"})
+    pid = r.pending_proposal_id
+    assert pid is not None
+
+    done = await Orchestrator().apply_decision(db, r, "reject")
+    assert done.state == "Monitoring"
+    claim = db.get(ActionProposal, pid)
+    assert claim is not None
+    assert claim.status == "rejected"
 
 
-# ── 슬라이스 2: 자산 트리거 + 통합 회복탄력성 + 개인화 ──
+@pytest.mark.asyncio
+async def test_asset_trigger_resilience(db: Session):
+    from app.agent.orchestrator import Orchestrator
+    from app.models.agent import ActionProposal
 
-def test_slice2_asset_trigger_resilience(client):
-    customer_id = _seed_customer(client)
-    sid = client.post(f"/customers/{customer_id}/agent-sessions").json()["session_id"]
+    s = _new_session(db)
 
-    # 자산 손실 선제 신호 → AssetDefenseIntent → 다중 제안
-    r = client.post(
-        f"/agent-sessions/{sid}/signals",
-        json={"source": "event", "payload": {"kind": "portfolio_loss"}},
-    ).json()
-    assert r["active_intents"]["primary"] == "AssetDefenseIntent"
-    assert r["state"] == "UserApproval"  # 보장 점검(외부 효과)이 승인 대기
+    r = await Orchestrator().handle_signal(db, s, "event", {"kind": "portfolio_loss"})
+    assert r.state == "UserApproval"
+    assert r.active_intents["primary_need"] == "cashflow"
+    assert r.active_intents["needs"]["cashflow_need"] == "high"
+    assert r.active_intents["needs"]["asset_defense_need"] == "high"
 
-    proposals = client.get(f"/agent-sessions/{sid}/proposals").json()["proposals"]
-    kinds = {p["kind"]: p for p in proposals}
+    proposals = db.exec(select(ActionProposal).where(ActionProposal.session_id == r.id)).all()
+    kinds = {p.kind: p for p in proposals}
 
-    # 통계 앵커 리포트 + 비상자금 플랜은 자동 실행됨
-    assert kinds["report"]["status"] == "executed"
-    assert kinds["cashflow_plan"]["status"] == "executed"
-    # 보장 점검은 외부 효과 → 승인 대기
-    assert kinds["review_insurance"]["has_external_effect"] is True
-
-    # 개인화: '투자 보류' 제약 → 리밸런싱 제안 제외
+    assert kinds["report"].status == "executed"
+    assert kinds["cashflow_plan"].status == "executed"
+    assert kinds["review_insurance"].has_external_effect is True
     assert "rebalance_portfolio" not in kinds
 
-    # 승인 → 완료
-    pid = r["pending_proposal"]["id"]
-    done = client.post(f"/proposals/{pid}/approve").json()
-    assert done["state"] == "Monitoring"
+    done = await Orchestrator().apply_decision(db, r, "approve")
+    assert done.state == "Monitoring"
 
 
-def test_slice2_population_stat_tool(client):
-    """통계 도구가 정형 쿼리로 출처와 함께 값을 반환."""
-    import app.core.database as database
+def test_population_stat_tool(db: Session):
     from app.tools.data_tools import get_population_stat
-    from sqlmodel import Session
 
-    _seed_customer(client)  # lifespan seed 보장
-    with Session(database.engine) as db:  # fixture가 patch한 sqlite 엔진
-        stat = get_population_stat(db, "65-69", "avg_emergency_fund_months")
+    stat = get_population_stat(db, "65-69", "avg_emergency_fund_months")
     assert stat["value"]["months"] == 6
-    assert stat["source"]  # 출처 동반 (설명가능성)
+    assert stat["source"]

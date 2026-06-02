@@ -127,7 +127,7 @@ REGISTRY = {
 
 - 각 액션은 **누가 언제 승인했는지**(`ApprovalDecision`)와 **무엇이 실행됐는지**(`ActionExecution`)가 분리 기록됨.
 - LLM은 실행 경로에 없으므로, "AI가 멋대로 했다"가 구조적으로 불가능.
-- 감사 추적: `Signal → Intent → Plan → ApprovalDecision → ActionExecution` 전 구간 `AgentEvent`로 로깅.
+- 감사 추적: `Signal → NeedAssessment → Plan → ApprovalDecision → ActionExecution` 전 구간 `AgentEvent`로 로깅.
 
 ## 테스트 포인트
 

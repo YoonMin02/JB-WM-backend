@@ -22,6 +22,7 @@
 참고 자료 (번호 없음, 필요 시):
 - [`CODEX_ADAPTER.md`](CODEX_ADAPTER.md) — Codex SDK 구체 연동 (실제 `~/codex/sdk/python` 기준)
 - [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) — 환경변수
+- [`APIs/`](APIs/) — 외부 API 원문 shape + 내부 adapter/agent tool 매핑 (MVP는 mock)
 - `external/codex-sdk/` — 공식 SDK 문서 스냅샷
 
 ## 용어집 (Glossary)
@@ -34,10 +35,9 @@
 |---|---|
 | `Monitoring` | 명시적 의도 없음. 데이터 관찰 중 (기본 상태) |
 | `SignalDetected` | 이벤트/발화 감지됨. 의도 분류 대기 |
-| `IntentUnknown` | 의도 불명확 → 고객에게 질문 필요 |
+| `AssessNeed` | 의료비·보험·현금흐름·자산방어·투자·생애설계 필요도를 함께 평가 |
 | `ClarifyUser` | 고객에게 명확화 질문 중 |
-| `*Intent` | 추론된 고객 의도 (HealthCare / Insurance / AssetDefense / InvestmentAdjust / LifePlan) |
-| `GeneratePlan` | 의도에 맞는 액션 계획 생성 |
+| `GeneratePlan` | 통합 필요도에 맞는 액션 계획 생성 |
 | `RiskCheck` | 계획의 의료/금융/법적 리스크 평가 |
 | `AutoExecutable` | 부작용 없는 액션 (승인 불필요) |
 | `NeedApproval` | 외부 효과 있는 액션 (고객 승인 필요) |
@@ -57,7 +57,7 @@
 | **Signal** | 상태 전이를 유발하는 사건 (자산 변동 선제 / 건강 제출 / 자연어) |
 | **자산 트리거 / 건강 트리거** | 자산=실시간 선제 감지(메인 능동성), 건강=고객 제출 시 재평가 |
 | **지불의향(medical_willingness)** | "의료에 얼마 쓸 용의" — 1급 개인화 변수 ([08](08_MEMORY.md)) |
-| **Intent** | 신호로부터 추론된 고객의 잠재 의도. 상태로 표현됨 |
+| **NeedAssessment** | 신호와 고객 컨텍스트로부터 산출한 통합 필요도 평가 |
 | **Plan** | 의도를 충족하기 위한 액션들의 집합 (LLM 생성) |
 | **ActionProposal** | LLM이 생성한 실행 *제안*. 실행 그 자체가 아님 |
 | **Policy Engine** | 리스크를 평가해 auto vs 고객승인을 결정하는 코드 규칙 |

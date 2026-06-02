@@ -47,7 +47,7 @@ flowchart LR
 
 | 원칙 | 구현 |
 |---|---|
-| 의료 권고를 생성하지 않는다 | reasoner 출력 스키마·프롬프트가 "재무·통계·연결·비용 범위별 시나리오"로 한정 ([04](04_AGENT_RUNTIME.md)). `HealthCareIntent`는 *의료비 감내 범위 설계*이지 처치 권고가 아님 |
+| 의료 권고를 생성하지 않는다 | reasoner 출력 스키마·프롬프트가 "재무·통계·연결·비용 범위별 시나리오"로 한정 ([04](04_AGENT_RUNTIME.md)). `medical_cost_need`는 *의료비 감내 범위 설계*이지 처치 권고가 아님 |
 | 통계는 참고정보로만 | `get_population_stat` 결과에 **출처·기준시점** 동반 ([06](06_TOOL_CONTRACTS.md), [STATS_SOURCES](STATS_SOURCES.md)) |
 | 의료 결정권은 고객·주치의 | 모든 의료 관련 출력에 면책·전문가 연결 안내 |
 
@@ -116,7 +116,7 @@ MVP: 세션 또는 JWT. 시크릿은 환경변수 ([ENVIRONMENT_VARIABLES.md](EN
 전 구간을 추적합니다:
 
 ```
-Signal → Intent(rationale) → Plan(explanation) → ApprovalDecision(누가/언제) → ActionExecution(무엇을)
+Signal → NeedAssessment(rationale) → Plan(explanation) → ApprovalDecision(누가/언제) → ActionExecution(무엇을)
 ```
 
 - 각 의도·계획에 **근거(rationale)** 가 기록됨 → 왜 이 제안을 했는지 설명 가능.

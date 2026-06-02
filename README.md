@@ -19,7 +19,7 @@ JB WM Agent는:
 - **건강 이벤트는 고객 제출 시** 자산·보험·의료비 감내 범위/지불의향을 함께 고려해 비용 범위별 대응 시나리오를 제안하며,
 - **민감 액션은 반드시 고객 승인**을 받고, **의료 권고는 생성하지 않습니다**(재무·통계참고·연결만).
 
-> 핵심 차별점: **(1) 건강·자산 통합 회복탄력성**(양방향) **(2) 능동성**(자산 선제 감지) **(3) 의료비 감내 범위/지불의향 기반 개인화** **(4) 이중 capability 경계**(실행 권한 없음 + 의료 권고 생성 안 함) **(5) 의도=상태**.
+> 핵심 차별점: **(1) 건강·자산 통합 회복탄력성**(양방향) **(2) 능동성**(자산 선제 감지) **(3) 의료비 감내 범위/지불의향 기반 개인화** **(4) 이중 capability 경계**(실행 권한 없음 + 의료 권고 생성 안 함) **(5) 통합 필요도 평가**.
 
 ---
 
@@ -81,11 +81,9 @@ flowchart TB
 
 이 그래프가 서비스 로직의 본체입니다. LLM이 아니라 **코드가** 이 전이를 강제합니다.
 
-> **중요**: `HealthCareIntent`, `InsuranceIntent`, `AssetDefenseIntent` 등은 도메인별
-> 전문 에이전트로 라우팅한다는 뜻이 아닙니다. JB WM은 고객 1명을 하나의
-> **통합 회복탄력성 상태**로 보는 holistic WM agent입니다. Intent 상태는 하나의
-> 통합 agent가 건강·보험·현금흐름·자산·투자·메모리를 함께 본 뒤, 이번 턴에서
-> 가장 우선되는 고객 니즈와 승인 게이트를 표현하는 **상태 라벨**입니다.
+> **중요**: JB WM은 고객 1명을 하나의 **통합 회복탄력성 상태**로 보는 holistic WM
+> agent입니다. 신호를 단일 `Intent`로 좁히지 않고 `AssessNeed`에서 의료비·보험·
+> 현금흐름·자산방어·투자전략·생애설계 필요도를 함께 평가합니다.
 
 ```mermaid
 stateDiagram-v2
@@ -95,26 +93,13 @@ stateDiagram-v2
     Monitoring --> SignalDetected: 건강 이벤트 제출
     Monitoring --> SignalDetected: 고객 자연어 입력
 
-    SignalDetected --> IntentUnknown: 의도 불명확
-    SignalDetected --> HealthCareIntent: 의료비 대비 필요
-    SignalDetected --> InsuranceIntent: 보험 점검/청구 필요
-    SignalDetected --> AssetDefenseIntent: 현금흐름/자산 방어 필요
-    SignalDetected --> InvestmentAdjustIntent: 투자전략 조정 필요
-    SignalDetected --> LifePlanIntent: 장기 생애설계 수정 필요
+    SignalDetected --> AssessNeed: 통합 필요도 평가
 
-    IntentUnknown --> ClarifyUser: 고객에게 질문
-    ClarifyUser --> HealthCareIntent
-    ClarifyUser --> InsuranceIntent
-    ClarifyUser --> AssetDefenseIntent
-    ClarifyUser --> InvestmentAdjustIntent
-    ClarifyUser --> PreferenceUpdate: 성향/제약만 변경
-    ClarifyUser --> NoAction: 지금은 원치 않음
-
-    HealthCareIntent --> GeneratePlan
-    InsuranceIntent --> GeneratePlan
-    AssetDefenseIntent --> GeneratePlan
-    InvestmentAdjustIntent --> GeneratePlan
-    LifePlanIntent --> GeneratePlan
+    AssessNeed --> ClarifyUser: 판단 불충분
+    ClarifyUser --> AssessNeed: 고객 답변
+    AssessNeed --> PreferenceUpdate: 성향/제약만 변경
+    AssessNeed --> NoAction: 지금은 원치 않음
+    AssessNeed --> GeneratePlan: 대응 필요
 
     GeneratePlan --> RiskCheck: 의료/금융/법적 리스크 검토
     RiskCheck --> AutoExecutable: 부작용 없는 액션
@@ -148,19 +133,19 @@ stateDiagram-v2
 >
 > **건강은 객관 문서로 앵커**: 질병 평가는 제출된 진단서·검진 내역 + 통계로 하고, 주관(인지·지불의향)은 *대응 개인화*에만 반영합니다 — 주관이 질병 크기를 왜곡하지 않도록.
 
-### 의도(Intent) = 고객의 숨은 니즈
+### AssessNeed = 통합 필요도 평가
 
-Intent는 agent 분리가 아니라 **현재 turn의 주된 고객 니즈**입니다. 예를 들어
-`AssetDefenseIntent`로 분류되어도 계획 생성은 의료비 대비, 보험 공백, 투자 제약,
-현금흐름을 함께 고려해야 합니다.
+`AssessNeed`는 고객이 자신의 문제를 직접 분류하지 않아도, agent가 최신 고객 컨텍스트를
+함께 보고 필요한 대응축을 평가하는 단계입니다.
 
-| 상태 | 고객의 숨은 의도 |
+| 필요도 | 의미 |
 |---|---|
-| `HealthCareIntent` | "의료비를 어떻게 대비하지?" (재무 대비 — 의료 권고 아님) |
-| `InsuranceIntent` | "내 보험으로 커버되나?" |
-| `AssetDefenseIntent` | "당장 현금흐름 괜찮나?" |
-| `InvestmentAdjustIntent` | "투자 위험도를 낮춰야 하나?" |
-| `LifePlanIntent` | "장기 계획 자체를 바꿔야 하나?" |
+| `medical_cost_need` | 의료비 감내 범위 설계 필요성 (의료 권고 아님) |
+| `insurance_need` | 보장 공백·청구 가능성·보험료 부담 점검 필요성 |
+| `cashflow_need` | 단기 지불능력. 의료비·상환·카드청구·생활비 |
+| `asset_defense_need` | 보유자산 훼손 방어. 손실 확정 매도·고위험 비중 |
+| `investment_adjust_need` | 위 평가 결과를 종합한 투자전략 조정 필요성 |
+| `life_plan_need` | 은퇴·생활비·장기 목표 재검토 필요성 |
 
 ---
 
@@ -282,7 +267,7 @@ app/
 ├── agent/
 │   ├── runtime.py           AgentReasoner 포트 + Orchestrator
 │   ├── codex_adapter.py     Codex SDK 구현 (유일한 SDK import 지점)
-│   ├── schemas.py           Intent / Plan / ActionProposal 구조화 스키마
+│   ├── schemas.py           NeedAssessment / Plan / ActionProposal 구조화 스키마
 │   └── prompts.py
 ├── state_machine/           states · transitions · guards
 ├── policy/                  리스크 규칙 · 승인 라우팅

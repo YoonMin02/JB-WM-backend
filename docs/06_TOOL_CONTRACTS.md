@@ -44,6 +44,11 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 
 모든 고객 도구는 **`customer_id`로 스코핑**됩니다. `get_all_*` 같은 광범위 도구는 금지.
 
+외부 금융 API의 원문 request/response shape는 [`APIs/`](APIs/)에 보관합니다.
+MVP에서는 실제 외부 API를 호출하지 않고, 해당 shape를 기준으로 mock adapter를 만듭니다.
+agent tool은 provider 원문 응답을 그대로 노출하지 않고, [`APIs/AGENT_TOOL_MAPPING.md`](APIs/AGENT_TOOL_MAPPING.md)의
+정규화된 read tool 결과만 제공합니다.
+
 ### get_customer_profile
 ```
 입력:  { customer_id: str }
@@ -85,6 +90,28 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 입력:  { customer_id: str }
 출력:  { loans: [{ balance, next_due_date, monthly_payment }], cashflow_risk_window }
 용도:  현금흐름 리스크 계산
+```
+
+### get_account_balances / get_account_transactions (planned)
+```
+입력:  { customer_id: str, from?: date, to?: date }
+출력:  정규화된 계좌 잔액·거래내역 요약 (APIs/AGENT_TOOL_MAPPING.md)
+용도:  현금흐름, 유동성, 의료비/고정비 지출 감지
+주의:  access_token, fintech_use_num, 계좌번호는 agent에 노출하지 않음
+```
+
+### get_card_bills (planned)
+```
+입력:  { customer_id: str, from_month?: str, to_month?: str }
+출력:  정규화된 카드 청구 기본/상세 요약
+용도:  다음 달 결제 예정액, 의료비/고정비 카드 지출 감지
+```
+
+### get_loan_switch_precheck (planned)
+```
+입력:  { customer_id: str, loan_id: str }
+출력:  대출이동 사전조회 mock 결과 (상환 가능 여부, 중도상환수수료 등)
+용도:  대환 가능성 참고. 실제 대환 실행은 Executor only
 ```
 
 ### get_customer_memory

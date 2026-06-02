@@ -7,13 +7,8 @@ from enum import StrEnum
 class State(StrEnum):
     MONITORING = "Monitoring"
     SIGNAL_DETECTED = "SignalDetected"
-    INTENT_UNKNOWN = "IntentUnknown"
+    ASSESS_NEED = "AssessNeed"
     CLARIFY_USER = "ClarifyUser"
-    HEALTHCARE_INTENT = "HealthCareIntent"
-    INSURANCE_INTENT = "InsuranceIntent"
-    ASSET_DEFENSE_INTENT = "AssetDefenseIntent"
-    INVESTMENT_ADJUST_INTENT = "InvestmentAdjustIntent"
-    LIFE_PLAN_INTENT = "LifePlanIntent"
     GENERATE_PLAN = "GeneratePlan"
     RISK_CHECK = "RiskCheck"
     AUTO_EXECUTABLE = "AutoExecutable"
@@ -28,25 +23,12 @@ class State(StrEnum):
     FAILED = "Failed"
 
 
-INTENT_STATES = {
-    State.HEALTHCARE_INTENT,
-    State.INSURANCE_INTENT,
-    State.ASSET_DEFENSE_INTENT,
-    State.INVESTMENT_ADJUST_INTENT,
-    State.LIFE_PLAN_INTENT,
-}
-
 # 허용 전이: from -> {to, ...}
 TRANSITIONS: dict[State, set[State]] = {
     State.MONITORING: {State.SIGNAL_DETECTED},
-    State.SIGNAL_DETECTED: {State.INTENT_UNKNOWN, *INTENT_STATES},
-    State.INTENT_UNKNOWN: {State.CLARIFY_USER},
-    State.CLARIFY_USER: {*INTENT_STATES, State.PREFERENCE_UPDATE, State.NO_ACTION},
-    State.HEALTHCARE_INTENT: {State.GENERATE_PLAN},
-    State.INSURANCE_INTENT: {State.GENERATE_PLAN},
-    State.ASSET_DEFENSE_INTENT: {State.GENERATE_PLAN},
-    State.INVESTMENT_ADJUST_INTENT: {State.GENERATE_PLAN},
-    State.LIFE_PLAN_INTENT: {State.GENERATE_PLAN},
+    State.SIGNAL_DETECTED: {State.ASSESS_NEED},
+    State.ASSESS_NEED: {State.CLARIFY_USER, State.PREFERENCE_UPDATE, State.NO_ACTION, State.GENERATE_PLAN},
+    State.CLARIFY_USER: {State.ASSESS_NEED, State.PREFERENCE_UPDATE, State.NO_ACTION},
     State.GENERATE_PLAN: {State.RISK_CHECK},
     State.RISK_CHECK: {State.AUTO_EXECUTABLE, State.NEED_APPROVAL},
     State.AUTO_EXECUTABLE: {State.EXECUTE_ACTION},
