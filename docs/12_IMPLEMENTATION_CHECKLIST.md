@@ -74,6 +74,10 @@
   - [ ] `PlanRecord`
   - [ ] `PlanRecord` 1건과 `ActionProposal` N건의 관계
 - [ ] 대체 설계를 유지할 경우 `05_DATA_MODEL.md`에서 `Intent`/`Plan` 테이블 표현을 제거하거나 "개념 모델"로 명확히 표시한다.
+- [ ] `CustomerMemory.medical_willingness`를 의료비 감내 범위/지불의향으로 확장한다.
+  - [ ] enum(`conservative`/`moderate`/`aggressive`)만 둘지, 금액대/월 현금흐름 비율/일회성 부담 한도를 같이 둘지 결정한다.
+  - [ ] 의료 관련 plan이 비용 범위별 재무 시나리오를 생성하도록 `Plan`/`ActionProposal` 스키마 확장을 검토한다.
+  - [ ] 치료법 추천 금지와 비용 범위별 시나리오 허용을 프롬프트와 테스트에 반영한다.
 
 ## Frontend Dependencies
 

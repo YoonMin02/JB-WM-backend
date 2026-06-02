@@ -12,7 +12,7 @@ flowchart TB
         S3[최근 대화 컨텍스트]
     end
     subgraph Long["장기 메모리 (고객 단위, 영속)"]
-        L0[medical_willingness ★지불의향]
+        L0[medical_willingness ★의료비 감내 범위/지불의향]
         L1[risk_preference]
         L2[hospital_preference]
         L3[investment_style]
@@ -53,19 +53,23 @@ flowchart TB
 }
 ```
 
-### 지불 의향 (medical_willingness) — 1급 개인화 변수
+### 의료비 감내 범위 / 지불 의향 (medical_willingness) — 1급 개인화 변수
 
-"의료/대응에 얼마까지 쓸 용의가 있는가"(`conservative` / `moderate` / `aggressive` 또는 금액대). 이것이:
+"의료/대응에 얼마까지 쓸 용의가 있는가", "어떤 부담은 심리적으로 피하고 싶은가"(`conservative` / `moderate` / `aggressive` 또는 금액대). 이것이:
 - **개인화의 축**: 같은 건강·자산 상황도 지불의향에 따라 다른 제안이 나온다.
-- **의료 경계의 한 축**: 회사는 "치료하세요"가 아니라 *"당신이 정한 예산 하에서 재무적으로 이렇게 대비됩니다"* 라고 말한다 ([10](10_SECURITY_PRIVACY.md), [01](01_PRODUCT_CONTEXT.md)).
+- **의료 경계의 한 축**: 회사는 "치료하세요"가 아니라 *"의료진과 상의할 비용 범위를, 당신이 정한 예산 하에서 이렇게 대비할 수 있습니다"* 라고 말한다 ([10](10_SECURITY_PRIVACY.md), [01](01_PRODUCT_CONTEXT.md)).
+
+자산 규모와 지불의향은 다릅니다. 자산이 큰 고객도 의료비 지출에는 보수적일 수 있고,
+자산이 작은 고객도 건강 관련 선택지는 넓게 열어두고 싶을 수 있습니다. 따라서
+`medical_willingness`는 단순 자산 규모의 함수가 아니라 고객별 장기 메모리입니다.
 
 ### 개인화 동작
 
 장기 메모리는 **`GeneratePlan`의 입력**입니다 ([04](04_AGENT_RUNTIME.md) `generate_plan(intent, memory)`). 같은 신호라도 고객마다 다른 계획이 나옵니다.
 
 예: 자산 손실 + 의료비 대비 필요 신호 →
-- `medical_willingness: conservative` + `constraints.투자=보류` 고객 → 저비용 보장 점검·비상자금만, 투자 조정·고비용 의료대비 **생략**
-- `medical_willingness: aggressive` + `investment_style: aggressive` 고객 → 적극적 의료비 대비 + 포트폴리오 조정도 제안
+- `medical_willingness: conservative` + `constraints.투자=보류` 고객 → 기본 검사/상담 비용 범위 중심, 보험·비상자금 우선, 투자 조정·고비용 대비는 soft CTA로만 제안
+- `medical_willingness: aggressive` + `investment_style: aggressive` 고객 → 정밀검사/입원 가능성까지 넓은 비용 범위를 열어두고, 보험·현금·투자 유동화 시나리오도 함께 제안
 
 ## 메모리 갱신 경로
 
