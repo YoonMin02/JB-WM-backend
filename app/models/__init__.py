@@ -8,7 +8,16 @@ from app.models.agent import (
     Signal,
 )
 from app.models.customer import Customer
-from app.models.finance import AssetEvent, Holding, LoanAccount, PortfolioAccount
+from app.models.finance import (
+    AccountBalance,
+    AccountTransaction,
+    AssetEvent,
+    CardBill,
+    Holding,
+    LoanAccount,
+    LoanSwitchPrecheck,
+    PortfolioAccount,
+)
 from app.models.health import HealthEvent, HealthRecord, MedicalDocument
 from app.models.insurance import CoverageItem, InsurancePolicy
 from app.models.memory import CustomerMemory
@@ -24,6 +33,10 @@ __all__ = [
     "PortfolioAccount",
     "Holding",
     "LoanAccount",
+    "AccountBalance",
+    "AccountTransaction",
+    "CardBill",
+    "LoanSwitchPrecheck",
     "AssetEvent",
     "CustomerMemory",
     "PopulationStat",

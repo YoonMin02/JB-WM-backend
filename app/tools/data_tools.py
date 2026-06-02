@@ -6,10 +6,21 @@ reasoner에 주입할 컨텍스트를 구성한다. 모두 customer_id로 스코
 """
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from sqlmodel import Session, select
 
 from app.models.customer import Customer
-from app.models.finance import AssetEvent, Holding, LoanAccount, PortfolioAccount
+from app.models.finance import (
+    AccountBalance,
+    AccountTransaction,
+    AssetEvent,
+    CardBill,
+    Holding,
+    LoanAccount,
+    LoanSwitchPrecheck,
+    PortfolioAccount,
+)
 from app.models.health import HealthEvent, HealthRecord
 from app.models.insurance import CoverageItem, InsurancePolicy
 from app.models.memory import CustomerMemory
@@ -76,6 +87,104 @@ def get_loan_status(db: Session, customer_id: str) -> dict:
     }
 
 
+def get_account_balances(db: Session, customer_id: str) -> dict:
+    accounts = db.exec(select(AccountBalance).where(AccountBalance.customer_id == customer_id)).all()
+    available_cash = sum(float(a.available_krw) for a in accounts if a.account_type in {"checking", "deposit"})
+    monthly_outflow = _monthly_outflow_krw(db, customer_id)
+    emergency_months = round(available_cash / monthly_outflow, 2) if monthly_outflow else None
+    return {
+        "accounts": [
+            {
+                "account_id": a.id,
+                "bank_name": a.bank_name,
+                "product_name": a.product_name,
+                "account_type": a.account_type,
+                "balance_krw": int(a.balance_krw),
+                "available_krw": int(a.available_krw),
+                "last_transaction_on": a.last_transaction_on.isoformat() if a.last_transaction_on else None,
+            }
+            for a in accounts
+        ],
+        "liquidity_summary": {
+            "available_cash_krw": int(available_cash),
+            "emergency_fund_months": emergency_months,
+        },
+    }
+
+
+def get_account_transactions(
+    db: Session,
+    customer_id: str,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> dict:
+    from_date = from_date or (date.today() - timedelta(days=90))
+    to_date = to_date or date.today()
+    rows = db.exec(
+        select(AccountTransaction)
+        .where(AccountTransaction.customer_id == customer_id)
+        .order_by(AccountTransaction.transacted_at.desc())
+    ).all()
+    rows = [r for r in rows if from_date <= r.transacted_at.date() <= to_date]
+    visible = rows[:30]
+    monthly_outflow = _monthly_outflow_krw(db, customer_id, rows)
+    medical_spending = sum(float(r.amount_krw) for r in rows if r.direction == "out" and r.category_hint == "medical")
+    fixed_cost = sum(float(r.amount_krw) for r in rows if r.direction == "out" and r.category_hint == "fixed_cost")
+    return {
+        "transactions": [
+            {
+                "transacted_at": r.transacted_at.isoformat(),
+                "direction": r.direction,
+                "description": r.description,
+                "amount_krw": int(r.amount_krw),
+                "category_hint": r.category_hint,
+            }
+            for r in visible
+        ],
+        "spending_summary": {
+            "monthly_outflow_krw": int(monthly_outflow),
+            "medical_spending_krw": int(medical_spending),
+            "fixed_cost_krw": int(fixed_cost),
+            "record_count": len(rows),
+        },
+    }
+
+
+def get_card_bills(db: Session, customer_id: str) -> dict:
+    bills = db.exec(select(CardBill).where(CardBill.customer_id == customer_id)).all()
+    upcoming = sum(float(b.charge_krw) for b in bills)
+    return {
+        "bills": [
+            {
+                "card_name": b.card_name,
+                "charge_month": b.charge_month,
+                "charge_krw": int(b.charge_krw),
+                "settlement_date": b.settlement_date.isoformat() if b.settlement_date else None,
+                "medical_charge_krw": int(
+                    sum(item.get("amount_krw", 0) for item in b.details if item.get("category_hint") == "medical")
+                ),
+            }
+            for b in bills
+        ],
+        "upcoming_card_payment_krw": int(upcoming),
+    }
+
+
+def get_loan_switch_precheck(db: Session, customer_id: str, loan_id: str | None = None) -> dict:
+    query = select(LoanSwitchPrecheck).where(LoanSwitchPrecheck.customer_id == customer_id)
+    if loan_id:
+        query = query.where(LoanSwitchPrecheck.loan_id == loan_id)
+    row = db.exec(query).first()
+    if not row:
+        return {}
+    return {
+        "loan_id": row.loan_id,
+        "repayment_available": row.repayment_available,
+        "prepayment_penalty_krw": int(row.prepayment_penalty_krw),
+        "note": "사전조회 mock 결과입니다. 실제 대환 실행은 고객 승인 후 Executor 영역입니다.",
+    }
+
+
 def get_customer_memory(db: Session, customer_id: str) -> dict:
     m = db.get(CustomerMemory, customer_id)
     if not m:
@@ -137,9 +246,25 @@ def build_context(db: Session, customer_id: str) -> dict:
         "profile": profile,
         "health": get_health_data(db, customer_id),
         "insurance": get_insurance_summary(db, customer_id),
+        "accounts": get_account_balances(db, customer_id),
+        "transactions": get_account_transactions(db, customer_id),
+        "card_bills": get_card_bills(db, customer_id),
         "loans": get_loan_status(db, customer_id),
+        "loan_switch_precheck": get_loan_switch_precheck(db, customer_id),
         "portfolio": get_portfolio_summary(db, customer_id),
         "asset_events": get_asset_events(db, customer_id),
         "population": population,
         "memory": get_customer_memory(db, customer_id),
     }
+
+
+def _monthly_outflow_krw(
+    db: Session,
+    customer_id: str,
+    rows: list[AccountTransaction] | None = None,
+) -> float:
+    rows = rows if rows is not None else db.exec(
+        select(AccountTransaction).where(AccountTransaction.customer_id == customer_id)
+    ).all()
+    outflow = sum(float(r.amount_krw) for r in rows if r.direction == "out")
+    return outflow / 3 if rows else 0.0

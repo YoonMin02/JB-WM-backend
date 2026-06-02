@@ -152,3 +152,48 @@ def test_customer_agent_session_is_reused(db: Session):
     second = create_session(customer_id, db)
     assert first["session_id"] == second["session_id"]
     assert first["customer_id"] == customer_id
+
+
+def test_api_shaped_mock_data_has_100_plus_records(db: Session):
+    from app.models.finance import AccountTransaction, CardBill, LoanSwitchPrecheck
+
+    customer_id = _customer_id(db)
+    transactions = db.exec(
+        select(AccountTransaction).where(AccountTransaction.customer_id == customer_id)
+    ).all()
+    card_bills = db.exec(select(CardBill).where(CardBill.customer_id == customer_id)).all()
+    prechecks = db.exec(
+        select(LoanSwitchPrecheck).where(LoanSwitchPrecheck.customer_id == customer_id)
+    ).all()
+
+    assert len(transactions) >= 100
+    assert len(card_bills) >= 2
+    assert len(prechecks) >= 1
+
+
+def test_financial_read_tools_hide_provider_identifiers(db: Session):
+    from app.tools.data_tools import (
+        build_context,
+        get_account_balances,
+        get_account_transactions,
+        get_card_bills,
+        get_loan_switch_precheck,
+    )
+
+    customer_id = _customer_id(db)
+    balances = get_account_balances(db, customer_id)
+    transactions = get_account_transactions(db, customer_id)
+    card_bills = get_card_bills(db, customer_id)
+    precheck = get_loan_switch_precheck(db, customer_id)
+    context = build_context(db, customer_id)
+
+    assert balances["liquidity_summary"]["available_cash_krw"] > 0
+    assert transactions["spending_summary"]["record_count"] >= 90
+    assert transactions["spending_summary"]["medical_spending_krw"] > 0
+    assert card_bills["upcoming_card_payment_krw"] > 0
+    assert precheck["repayment_available"] is True
+    assert "accounts" in context and "transactions" in context and "card_bills" in context
+
+    serialized = str({"balances": balances, "transactions": transactions, "card_bills": card_bills, "precheck": precheck})
+    for hidden in ("fintech_use_num", "user_seq_no", "card_value", "api_tran_id", "bank_tran_id"):
+        assert hidden not in serialized
