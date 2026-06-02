@@ -45,6 +45,26 @@ def customer_loans(customer_id: str, db: Session = Depends(db_session)) -> dict:
     return data_tools.get_loan_status(db, customer_id)
 
 
+@router.get("/{customer_id}/accounts")
+def customer_accounts(customer_id: str, db: Session = Depends(db_session)) -> dict:
+    return data_tools.get_account_balances(db, customer_id)
+
+
+@router.get("/{customer_id}/transactions")
+def customer_transactions(customer_id: str, db: Session = Depends(db_session)) -> dict:
+    return data_tools.get_account_transactions(db, customer_id)
+
+
+@router.get("/{customer_id}/card-bills")
+def customer_card_bills(customer_id: str, db: Session = Depends(db_session)) -> dict:
+    return data_tools.get_card_bills(db, customer_id)
+
+
+@router.get("/{customer_id}/loan-switch-precheck")
+def customer_loan_switch_precheck(customer_id: str, db: Session = Depends(db_session)) -> dict:
+    return data_tools.get_loan_switch_precheck(db, customer_id)
+
+
 @router.get("/{customer_id}/memory")
 def customer_memory(customer_id: str, db: Session = Depends(db_session)) -> dict:
     return data_tools.get_customer_memory(db, customer_id)

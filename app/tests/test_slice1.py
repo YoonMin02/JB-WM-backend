@@ -144,6 +144,26 @@ def test_customer_portfolio_route_contract(db: Session):
     assert portfolio["high_risk_weight"] == 0.7
 
 
+def test_customer_financial_context_routes(db: Session):
+    from app.api.routes.customers import (
+        customer_accounts,
+        customer_card_bills,
+        customer_loan_switch_precheck,
+        customer_transactions,
+    )
+
+    customer_id = _customer_id(db)
+    accounts = customer_accounts(customer_id, db)
+    transactions = customer_transactions(customer_id, db)
+    card_bills = customer_card_bills(customer_id, db)
+    precheck = customer_loan_switch_precheck(customer_id, db)
+
+    assert accounts["liquidity_summary"]["available_cash_krw"] > 0
+    assert transactions["spending_summary"]["record_count"] >= 90
+    assert card_bills["upcoming_card_payment_krw"] > 0
+    assert precheck["repayment_available"] is True
+
+
 def test_customer_agent_session_is_reused(db: Session):
     from app.api.routes.sessions import create_session
 
