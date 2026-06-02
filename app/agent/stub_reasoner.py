@@ -9,7 +9,7 @@ from app.agent.schemas import ActionProposalSchema, NeedAssessment, Plan
 
 
 class StubReasoner:
-    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+    async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         payload = signal.get("payload", {})
         kind = str(payload.get("kind", "")).lower()
         text = str(payload.get("text", "")).lower()
@@ -79,7 +79,9 @@ class StubReasoner:
             clarifying_question="어떤 부분을 먼저 봐드릴까요? (보험 / 현금흐름 / 투자)",
         )
 
-    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+    async def generate_plan(
+        self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
+    ) -> Plan:
         if assessment.cashflow_need in ("mid", "high") or assessment.asset_defense_need in ("mid", "high"):
             return self._asset_defense_plan(assessment, ctx, memory)
         if assessment.insurance_need == "none" and assessment.medical_cost_need == "none":

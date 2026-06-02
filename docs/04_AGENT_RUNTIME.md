@@ -58,11 +58,13 @@ class AgentReasoner(Protocol):
         """기존 세션 재개."""
         ...
 
-    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+    async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         """신호로부터 통합 필요도 평가 (read-only 도구 사용 가능)."""
         ...
 
-    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+    async def generate_plan(
+        self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
+    ) -> Plan:
         """필요도 평가 + 장기 메모리(개인화) → 액션 제안 계획."""
         ...
 ```
@@ -113,6 +115,9 @@ LLM이 상태머신에 들어가는 곳은 두 군데가 중심입니다.
 Codex thread id를 즉시 영속화하여, 프로세스가 재시작해도 같은 고객 agent thread를
 재개할 수 있게 합니다. 별도 시뮬레이션, 감사 분리, thread rollover 같은 경우에만
 예외적으로 새 session/thread를 만듭니다.
+
+현재 구현은 `AgentSession.agent_thread_id`가 있으면 Codex adapter가 `thread_resume()`을
+사용하고, 없으면 `thread_start()` 후 반환된 thread id를 세션에 저장합니다.
 
 ## 구조화 출력
 

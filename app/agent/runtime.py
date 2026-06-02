@@ -24,11 +24,13 @@ class CustomerContext(Protocol):
 class AgentReasoner(Protocol):
     """추론 백엔드. 판단·계획만 한다. 상태 변경·실행은 하지 않는다."""
 
-    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+    async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         """신호 + 읽기 전용 컨텍스트 → 통합 필요도 평가."""
         ...
 
-    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+    async def generate_plan(
+        self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
+    ) -> Plan:
         """통합 필요도 평가 + 컨텍스트 + 장기 메모리(개인화) → 액션 제안 계획."""
         ...
 

@@ -35,7 +35,10 @@ class Orchestrator:
         ctx = build_context(db, session.customer_id)
         log_event(db, session.id, "tool_call", {"tool": "build_context"})
 
-        assessment = await self.reasoner.assess_need({"source": source, "payload": payload}, ctx)
+        assessment = await self.reasoner.assess_need(
+            {"source": source, "payload": payload}, ctx, session.agent_thread_id
+        )
+        self._sync_thread_ref(db, session)
         log_event(db, session.id, "need_assessment", assessment.model_dump())
 
         if assessment.needs_clarification:
@@ -64,7 +67,8 @@ class Orchestrator:
 
         # 계획 생성 (장기 메모리 반영 = 개인화)
         transition(db, session, State.GENERATE_PLAN)
-        plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}))
+        plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}), session.agent_thread_id)
+        self._sync_thread_ref(db, session)
         plan.assessment = assessment
         log_event(db, session.id, "plan", plan.model_dump())
         proposals = self._persist_plan(db, session, plan)
@@ -149,7 +153,8 @@ class Orchestrator:
             ctx = build_context(db, session.customer_id)
             assessment = self._assessment_from_session(session)
             transition(db, session, State.GENERATE_PLAN)
-            plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}))
+            plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}), session.agent_thread_id)
+            self._sync_thread_ref(db, session)
             log_event(db, session.id, "plan", {"revised": True, **plan.model_dump()})
             proposals = self._persist_plan(db, session, plan)
             return await self._risk_route(db, session, proposals)
@@ -196,6 +201,14 @@ class Orchestrator:
             primary_need=session.active_intents.get("primary_need", "none") if session.active_intents else "none",
             **{k: v for k, v in needs.items() if k.endswith("_need")},
         )
+
+    def _sync_thread_ref(self, db: Session, session: AgentSession) -> None:
+        thread_id = getattr(self.reasoner, "last_thread_id", None)
+        if thread_id and thread_id != session.agent_thread_id:
+            session.agent_thread_id = thread_id
+            db.add(session)
+            db.commit()
+            db.refresh(session)
 
 
 def evaluate_needs_approval(proposal: ActionProposal) -> bool:

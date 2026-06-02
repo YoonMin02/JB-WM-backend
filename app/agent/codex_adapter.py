@@ -85,7 +85,12 @@ def _write_workspace(ctx: dict) -> Path:
     base = settings.codex_working_directory or None
     if base:
         Path(base).mkdir(parents=True, exist_ok=True)
-    root = Path(tempfile.mkdtemp(prefix="jbwm_ws_", dir=base))
+    customer_id = str(ctx.get("customer_id") or "").replace("/", "_")
+    if customer_id:
+        root = Path(base or tempfile.gettempdir()) / f"jbwm_customer_{customer_id}"
+        root.mkdir(parents=True, exist_ok=True)
+    else:
+        root = Path(tempfile.mkdtemp(prefix="jbwm_ws_", dir=base))
     for name, payload in ctx.items():
         if not isinstance(payload, (dict, list)):
             continue
@@ -103,27 +108,34 @@ def _parse(raw: str | None, model: type):
 
 
 class CodexReasoner:
-    async def _run(self, prompt: str, ctx: dict, schema_model: type):
+    def __init__(self) -> None:
+        self.last_thread_id: str | None = None
+
+    async def _run(self, prompt: str, ctx: dict, schema_model: type, session_ref: str | None = None):
         # 지연 import: stub reasoner 사용 시 openai_codex 미설치여도 동작하도록
         from openai_codex import AsyncCodex, Sandbox
 
         _guard.check()  # 쿼터 보호 — 한도 초과 시 CodexRateLimited
         workspace = _write_workspace(ctx)
         async with AsyncCodex() as codex:
-            # 기존 `codex login` OAuth 세션 자동 재사용.
-            thread = await codex.thread_start(
-                model=settings.codex_model,
-                sandbox=Sandbox.read_only,  # ★ capability 보안
-                developer_instructions=SYSTEM_INSTRUCTIONS,
-                cwd=str(workspace),
-            )
+            if session_ref:
+                thread = await codex.thread_resume(session_ref)
+            else:
+                # 기존 `codex login` OAuth 세션 자동 재사용.
+                thread = await codex.thread_start(
+                    model=settings.codex_model,
+                    sandbox=Sandbox.read_only,  # ★ capability 보안
+                    developer_instructions=SYSTEM_INSTRUCTIONS,
+                    cwd=str(workspace),
+                )
+            self.last_thread_id = thread.id
             result = await thread.run(prompt, output_schema=_strict_schema(schema_model))
             if result.status == "failed":
                 raise RuntimeError(f"Codex turn 실패: {result.error}")
             logger.info("codex turn ok (thread=%s)", thread.id)
             return _parse(result.final_response, schema_model)
 
-    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+    async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         prompt = (
             "워크스페이스의 고객 데이터를 읽고, 아래 신호로부터 고객의 통합 필요도를 평가하세요. "
             "단일 intent로 좁히지 말고 medical_cost_need, insurance_need, cashflow_need, "
@@ -132,9 +144,11 @@ class CodexReasoner:
             f"신호: {json.dumps(signal, ensure_ascii=False)}\n"
             "NeedAssessment 스키마(JSON)로만 답하세요."
         )
-        return await self._run(prompt, ctx, NeedAssessment)
+        return await self._run(prompt, ctx, NeedAssessment, session_ref=session_ref)
 
-    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+    async def generate_plan(
+        self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
+    ) -> Plan:
         prompt = (
             "워크스페이스의 고객 데이터(건강·자산 통합)와 통계(population.json), "
             "장기 메모리(memory.json: 지불의향·성향·제약), 그리고 통합 필요도 평가를 반영하여 "
@@ -145,5 +159,5 @@ class CodexReasoner:
             f"통합 필요도 평가: {assessment.model_dump_json()}\n"
             "LLMPlan 스키마(JSON)로만 답하세요."
         )
-        llm_plan: LLMPlan = await self._run(prompt, ctx, LLMPlan)
+        llm_plan: LLMPlan = await self._run(prompt, ctx, LLMPlan, session_ref=session_ref)
         return llm_plan.to_plan(assessment=assessment)
