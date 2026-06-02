@@ -58,13 +58,15 @@
 
 ## API / Frontend Contract
 
-- [ ] 프론트가 호출하는 `GET /customers/{customer_id}/portfolio`를 백엔드에 구현한다.
-- [ ] API 문서의 proposal 승인 응답을 실제 구현과 맞춘다.
+- [x] 프론트가 호출하는 `GET /customers/{customer_id}/portfolio`를 백엔드에 구현한다.
+- [x] API 문서의 proposal 승인 응답을 실제 구현과 맞춘다.
   - 현재 구현: 승인/거절/수정 후 최종 `Session` 객체 반환.
   - 문서 예시: `{ proposal_id, status, next_state }`.
   - 둘 중 하나로 통일한다.
-- [ ] 승인 후 상태를 즉시 `Monitoring`까지 완료할지, `ExecuteAction`/`VerifyResult` 중간 상태를 프론트에 노출할지 결정한다.
-- [ ] 다중 승인 proposal queue가 필요한 경우 `pending_proposal_id` 단일 필드를 확장한다.
+- [x] 승인 후 상태를 즉시 `Monitoring`까지 완료할지, `ExecuteAction`/`VerifyResult` 중간 상태를 프론트에 노출할지 결정한다.
+  - MVP 정책: 서버에서 `Monitoring`까지 완료하고, 중간 상태는 `AgentEvent`로 노출한다.
+- [x] 다중 승인 proposal queue가 필요한 경우 `pending_proposal_id` 단일 필드를 확장한다.
+  - MVP 정책: 단일 `pending_proposal_id` 유지. 다중 큐는 후속 확장으로 둔다.
 
 ## Data Model Alignment
 
