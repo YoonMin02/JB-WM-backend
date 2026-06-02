@@ -125,6 +125,30 @@ Codex SDK는 커스텀 함수 등록 API가 없고 **워크스페이스 + MCP** 
 
 > SDK 런타임은 MCP를 지원합니다 (`McpToolCall*` 알림, `mcp_server_config`). 동적 데이터·통계 도구는 우리 백엔드 MCP 서버로 노출하고, **읽기 전용**으로 제한합니다. 실행 도구는 MCP에도 두지 않습니다.
 
+현재 구현은 별도 배포 서버가 아니라 같은 백엔드 코드의 stdio 서버를 thread별로 등록합니다.
+
+```python
+config={
+  "mcp_server_config": {
+    "jbwm-read-tools": {
+      "command": sys.executable,
+      "args": ["-m", "app.mcp.read_server"],
+      "env": {
+        "JBWM_MCP_CUSTOMER_ID": customer_id,
+        "JBWM_MCP_SESSION_ID": session_id,
+        "DATABASE_URL": settings.database_url,
+        "POLICY_DOCS_PATH": settings.policy_docs_path,
+      },
+    }
+  }
+}
+```
+
+`app.mcp.read_server`는 `get_customer_profile`, `get_health_data`, `get_portfolio_summary`,
+`get_asset_events`, `get_insurance_summary`, `get_loan_status`, `get_customer_memory`,
+`get_population_stat`, `search_policy_documents`만 노출합니다. `customer_id`는 tool argument가
+아니라 서버 env로 스코핑하며, MCP tool call은 `AgentEvent(type="tool_call")`에 기록됩니다.
+
 ## 에러 처리
 
 ```python

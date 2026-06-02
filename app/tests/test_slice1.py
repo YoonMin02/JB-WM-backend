@@ -59,6 +59,37 @@ def test_capability_no_execution_tools():
         assert not any(n.startswith(verb) for n in names), f"실행 도구 노출됨: {verb}"
 
 
+def test_mcp_read_tools_are_scoped_and_audited(db: Session):
+    from app.mcp.read_tools import call_read_tool, list_read_tools
+    from app.models.agent import AgentEvent
+
+    session = _new_session(db)
+    tools = {tool["name"] for tool in list_read_tools()}
+    assert "get_health_data" in tools
+    assert "get_customer_memory" in tools
+    assert "search_policy_documents" in tools
+    for forbidden in ("book_hospital", "submit_claim", "transfer_money", "change_portfolio"):
+        assert forbidden not in tools
+
+    result = call_read_tool(
+        db,
+        session_id=session.id,
+        customer_id=session.customer_id,
+        name="get_customer_profile",
+        arguments={"customer_id": "malicious-other-customer"},
+    )
+    assert result["id"] == session.customer_id
+
+    events = db.exec(select(AgentEvent).where(AgentEvent.session_id == session.id)).all()
+    assert any(
+        event.type == "tool_call"
+        and event.detail["via"] == "mcp"
+        and event.detail["tool"] == "get_customer_profile"
+        and "customer_id" not in event.detail["arguments"]
+        for event in events
+    )
+
+
 def test_health_data_requires_consent(db: Session):
     from app.models.health import HealthRecord
     from app.tools.data_tools import get_health_data
@@ -320,7 +351,7 @@ def test_financial_read_tools_hide_provider_identifiers(db: Session):
 
 
 def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatch, tmp_path):
-    from app.agent.codex_adapter import _write_workspace
+    from app.agent.codex_adapter import _mcp_config, _write_workspace
     from app.core.config import settings
     from app.tools.data_tools import build_context
 
@@ -331,8 +362,10 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     (policy_docs / "script.py").write_text("print('do not copy')", encoding="utf-8")
     monkeypatch.setattr(settings, "policy_docs_path", str(policy_docs))
     ctx = build_context(db, _customer_id(db))
+    ctx["agent_session_id"] = "session-for-mcp"
 
     workspace = _write_workspace(ctx)
+    mcp_config = _mcp_config(ctx)
     files = {p.name for p in workspace.iterdir()}
 
     assert "customer_id.json" not in files
@@ -343,6 +376,12 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     assert not any(name.endswith(".py") for name in files)
     assert (workspace / "static_context" / "boundary.md").exists()
     assert not (workspace / "static_context" / "script.py").exists()
+    server = mcp_config["mcp_server_config"]["jbwm-read-tools"]
+    assert server["args"] == ["-m", "app.mcp.read_server"]
+    assert server["env"]["JBWM_MCP_CUSTOMER_ID"] == ctx["customer_id"]
+    assert server["env"]["JBWM_MCP_SESSION_ID"] == "session-for-mcp"
+    assert server["env"]["PYTHONPATH"].endswith("JB-WM-backend")
+    assert server["env"]["POLICY_DOCS_PATH"].endswith("policy_docs")
 
     accounts = json.loads((workspace / "accounts.json").read_text(encoding="utf-8"))
     assert accounts["liquidity_summary"]["available_cash_krw"] > 0

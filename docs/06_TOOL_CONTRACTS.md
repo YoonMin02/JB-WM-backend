@@ -43,6 +43,14 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 정적 규정/약관/반복 정책 문서는 `policy_docs/` 아래에 둡니다. Codex workspace에는 `.md`, `.txt`,
 `.json` 파일만 `static_context/`로 복사되며, 코드/실행 파일은 복사하지 않습니다.
 
+현재 구현:
+- MCP stdio 서버: `python -m app.mcp.read_server`
+- tool registry: `app/mcp/read_tools.py`
+- Codex 등록: `CodexReasoner`가 `thread_start`/`thread_resume`의 `config.mcp_server_config`에
+  `jbwm-read-tools`를 추가
+- 고객 scope: `JBWM_MCP_CUSTOMER_ID` env로 고정. 모델이 tool argument에 `customer_id`를 넣어도 무시
+- 감사: `JBWM_MCP_SESSION_ID`가 있으면 모든 tool call을 `AgentEvent(type="tool_call")`로 저장
+
 ## 도구 목록 (① 고객 개인)
 
 모든 고객 도구는 **`customer_id`로 스코핑**됩니다. `get_all_*` 같은 광범위 도구는 금지.

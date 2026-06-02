@@ -48,6 +48,7 @@ class Orchestrator:
         transition(db, session, State.ASSESS_NEED)
 
         ctx = build_context(db, session.customer_id)
+        ctx["agent_session_id"] = session.id
         log_event(db, session.id, "tool_call", {"tool": "build_context"})
         await self._ensure_reasoner_session(db, session, ctx)
 
@@ -169,6 +170,7 @@ class Orchestrator:
             transition(db, session, State.REVISE_PLAN, detail={"note": note})
             # 재계획: 의도 유지하고 plan 재생성
             ctx = build_context(db, session.customer_id)
+            ctx["agent_session_id"] = session.id
             await self._ensure_reasoner_session(db, session, ctx)
             assessment = self._assessment_from_session(session)
             transition(db, session, State.GENERATE_PLAN)

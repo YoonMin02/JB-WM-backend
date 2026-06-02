@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -79,6 +80,7 @@ class _RateGuard:
 
 _guard = _RateGuard()
 _STATIC_CONTEXT_EXTENSIONS = {".md", ".txt", ".json"}
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _make_strict(node):
@@ -102,6 +104,7 @@ SYSTEM_INSTRUCTIONS = (
     "당신은 JB WM의 분석 보조 에이전트입니다. 워크스페이스의 고객 데이터 파일"
     "(profile/health/insurance/accounts/transactions/card_bills/loans/portfolio/"
     "asset_events/population/memory.json)과 규정 파일을 읽고 분석합니다. "
+    "동적 고객 데이터가 필요하면 등록된 MCP 읽기 도구만 사용합니다. "
     "당신은 읽기·분석·제안만 합니다. 어떤 실제 행동(예약·청구·송금)도 실행하지 않으며, "
     "그럴 권한도 없습니다. 항상 요청된 JSON 스키마에 맞는 결과만 반환하세요."
 )
@@ -150,6 +153,33 @@ def _copy_static_context(root: Path) -> None:
         shutil.copyfile(path, destination)
 
 
+def _mcp_config(ctx: dict) -> dict:
+    customer_id = str(ctx.get("customer_id") or "")
+    if not customer_id:
+        return {}
+    policy_docs = Path(settings.policy_docs_path)
+    if not policy_docs.is_absolute():
+        policy_docs = (_BACKEND_ROOT / policy_docs).resolve()
+    env = {
+        "JBWM_MCP_CUSTOMER_ID": customer_id,
+        "DATABASE_URL": settings.database_url,
+        "POLICY_DOCS_PATH": str(policy_docs),
+        "PYTHONPATH": str(_BACKEND_ROOT),
+    }
+    session_id = ctx.get("agent_session_id")
+    if session_id:
+        env["JBWM_MCP_SESSION_ID"] = str(session_id)
+    return {
+        "mcp_server_config": {
+            "jbwm-read-tools": {
+                "command": sys.executable,
+                "args": ["-m", "app.mcp.read_server"],
+                "env": env,
+            }
+        }
+    }
+
+
 def _parse(raw: str | None, model: type):
     if not raw:
         raise CodexOutputError("Codex가 빈 응답을 반환했습니다.")
@@ -176,6 +206,7 @@ class CodexReasoner:
                     sandbox=Sandbox.read_only,
                     developer_instructions=SYSTEM_INSTRUCTIONS,
                     cwd=str(workspace),
+                    config=_mcp_config(ctx),
                 )
             self.last_thread_id = thread.id
             logger.info("codex session start ok thread=%s", thread.id)
@@ -207,7 +238,13 @@ class CodexReasoner:
                 logger.info("codex client opened schema=%s", schema_model.__name__)
                 if session_ref:
                     logger.info("codex thread resume start thread=%s", session_ref)
-                    thread = await codex.thread_resume(session_ref)
+                    thread = await codex.thread_resume(
+                        session_ref,
+                        sandbox=Sandbox.read_only,
+                        developer_instructions=SYSTEM_INSTRUCTIONS,
+                        cwd=str(workspace),
+                        config=_mcp_config(ctx),
+                    )
                     logger.info("codex thread resume ok thread=%s", thread.id)
                 else:
                     # 기존 `codex login` OAuth 세션 자동 재사용.
@@ -217,6 +254,7 @@ class CodexReasoner:
                         sandbox=Sandbox.read_only,  # ★ capability 보안
                         developer_instructions=SYSTEM_INSTRUCTIONS,
                         cwd=str(workspace),
+                        config=_mcp_config(ctx),
                     )
                     logger.info("codex thread start ok thread=%s", thread.id)
                 self.last_thread_id = thread.id

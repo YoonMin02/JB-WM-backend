@@ -31,22 +31,22 @@
 
 ## MCP Read Tools
 
-- [ ] 현재 `build_context()` JSON 파일 방식은 MVP fallback으로 남기되, 실제 동적 데이터 접근은 MCP 읽기 도구로 옮긴다.
-- [ ] 고객 데이터 도구:
-  - [ ] `get_customer_profile`
-  - [ ] `get_health_data`
-  - [ ] `get_portfolio_summary`
-  - [ ] `get_asset_events`
-  - [ ] `get_insurance_summary`
-  - [ ] `get_loan_status`
-  - [ ] `get_customer_memory`
-- [ ] 통계/기준 도구:
-  - [ ] `get_population_stat`
-- [ ] 문서 검색 도구:
-  - [ ] `search_policy_documents`
-- [ ] 모든 MCP 도구는 customer/session scope를 강제한다.
-- [ ] 실행 도구(`book_*`, `submit_*`, `transfer_*`, `change_*`)는 MCP에도 절대 등록하지 않는다.
-- [ ] MCP tool call은 `AgentEvent` 또는 별도 감사 테이블에 기록한다.
+- [x] 현재 `build_context()` JSON 파일 방식은 MVP fallback으로 남기되, 실제 동적 데이터 접근은 MCP 읽기 도구로 옮긴다.
+- [x] 고객 데이터 도구:
+  - [x] `get_customer_profile`
+  - [x] `get_health_data`
+  - [x] `get_portfolio_summary`
+  - [x] `get_asset_events`
+  - [x] `get_insurance_summary`
+  - [x] `get_loan_status`
+  - [x] `get_customer_memory`
+- [x] 통계/기준 도구:
+  - [x] `get_population_stat`
+- [x] 문서 검색 도구:
+  - [x] `search_policy_documents`
+- [x] 모든 MCP 도구는 customer/session scope를 강제한다.
+- [x] 실행 도구(`book_*`, `submit_*`, `transfer_*`, `change_*`)는 MCP에도 절대 등록하지 않는다.
+- [x] MCP tool call은 `AgentEvent` 또는 별도 감사 테이블에 기록한다.
 
 ## Safe Workspace / Static Context
 
