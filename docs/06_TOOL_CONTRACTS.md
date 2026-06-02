@@ -40,6 +40,9 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 
 > 에이전트 thread는 항상 `Sandbox.read_only`로 시작합니다. 워크스페이스에는 **현재 고객의 데이터 스냅샷 + 규정 파일만** 둡니다. 다른 고객 데이터는 워크스페이스에 두지 않습니다 (격리). 자세히는 [CODEX_ADAPTER.md](CODEX_ADAPTER.md).
 
+정적 규정/약관/반복 정책 문서는 `policy_docs/` 아래에 둡니다. Codex workspace에는 `.md`, `.txt`,
+`.json` 파일만 `static_context/`로 복사되며, 코드/실행 파일은 복사하지 않습니다.
+
 ## 도구 목록 (① 고객 개인)
 
 모든 고객 도구는 **`customer_id`로 스코핑**됩니다. `get_all_*` 같은 광범위 도구는 금지.

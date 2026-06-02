@@ -137,6 +137,7 @@ cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/portfolio.json    # 모델�
 cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/population.json   # 모델이 읽은 통계
 cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/transactions.json # 모델이 읽은 거래 요약
 cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/memory.json       # 지불의향·의료비 감내 범위·제약
+ls ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/static_context     # policy_docs 정적 문서
 ```
 → 샌드박스는 `read_only`. 모델은 이 파일들을 읽기만 하고 쓰지/실행하지 못합니다.
 

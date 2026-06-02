@@ -325,6 +325,11 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     from app.tools.data_tools import build_context
 
     monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
+    policy_docs = tmp_path / "policy_docs"
+    policy_docs.mkdir()
+    (policy_docs / "boundary.md").write_text("read-only policy", encoding="utf-8")
+    (policy_docs / "script.py").write_text("print('do not copy')", encoding="utf-8")
+    monkeypatch.setattr(settings, "policy_docs_path", str(policy_docs))
     ctx = build_context(db, _customer_id(db))
 
     workspace = _write_workspace(ctx)
@@ -336,6 +341,8 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     assert "transactions.json" in files
     assert "memory.json" in files
     assert not any(name.endswith(".py") for name in files)
+    assert (workspace / "static_context" / "boundary.md").exists()
+    assert not (workspace / "static_context" / "script.py").exists()
 
     accounts = json.loads((workspace / "accounts.json").read_text(encoding="utf-8"))
     assert accounts["liquidity_summary"]["available_cash_krw"] > 0

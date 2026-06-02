@@ -119,6 +119,10 @@ Codex SDK는 커스텀 함수 등록 API가 없고 **워크스페이스 + MCP** 
 
 > 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. 어댑터는 `build_context`의 JSON-like 키 — `profile/health/insurance/accounts/transactions/card_bills/loans/loan_switch_precheck/portfolio/asset_events/population/memory(.json)` — 를 워크스페이스에 materialize합니다. 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
 
+`policy_docs/`의 정적 문서(`.md`, `.txt`, `.json`)는 workspace의 `static_context/`로 복사됩니다.
+기본 샘플은 의료/금융 경계, 실행 capability 경계, 통계 사용 원칙입니다. 소스 코드나 실행 파일은
+복사하지 않습니다.
+
 > SDK 런타임은 MCP를 지원합니다 (`McpToolCall*` 알림, `mcp_server_config`). 동적 데이터·통계 도구는 우리 백엔드 MCP 서버로 노출하고, **읽기 전용**으로 제한합니다. 실행 도구는 MCP에도 두지 않습니다.
 
 ## 에러 처리

@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import threading
 import time
@@ -77,6 +78,7 @@ class _RateGuard:
 
 
 _guard = _RateGuard()
+_STATIC_CONTEXT_EXTENSIONS = {".md", ".txt", ".json"}
 
 
 def _make_strict(node):
@@ -126,8 +128,26 @@ def _write_workspace(ctx: dict) -> Path:
         (root / f"{name}.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+    _copy_static_context(root)
     logger.info("codex workspace prepared path=%s files=%s", root, sorted(p.name for p in root.glob("*.json")))
     return root
+
+
+def _copy_static_context(root: Path) -> None:
+    source = Path(settings.policy_docs_path)
+    if not source.exists() or not source.is_dir():
+        return
+
+    target = root / "static_context"
+    for path in source.rglob("*"):
+        if not path.is_file() or path.name.startswith("."):
+            continue
+        if path.suffix.lower() not in _STATIC_CONTEXT_EXTENSIONS:
+            continue
+        relative = path.relative_to(source)
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, destination)
 
 
 def _parse(raw: str | None, model: type):
