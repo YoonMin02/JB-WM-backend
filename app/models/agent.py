@@ -71,3 +71,38 @@ class AgentEvent(SQLModel, table=True):
     type: str  # state_transition / tool_call / need_assessment / plan / approval / execution
     detail: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class AgentMessage(SQLModel, table=True):
+    """전문/대화 원본 저장. UI 타임라인과 분리된 append-only 기록."""
+
+    id: str = Field(default_factory=new_uuid, primary_key=True)
+    session_id: str = Field(foreign_key="agentsession.id", index=True)
+    role: str  # user / system / assistant / tool
+    content: str
+    meta: dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSON))
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class NeedAssessmentRecord(SQLModel, table=True):
+    """AssessNeed 구조화 결과 저장. compact와 무관한 재현/감사용 기록."""
+
+    id: str = Field(default_factory=new_uuid, primary_key=True)
+    session_id: str = Field(foreign_key="agentsession.id", index=True)
+    needs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    primary_need: str = "none"
+    confidence: float = 0.0
+    rationale: str = ""
+    raw_output: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class PlanRecord(SQLModel, table=True):
+    """GeneratePlan 구조화 결과 저장. ActionProposal N건과 함께 추적한다."""
+
+    id: str = Field(default_factory=new_uuid, primary_key=True)
+    session_id: str = Field(foreign_key="agentsession.id", index=True)
+    explanation: str = ""
+    raw_output: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    proposal_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=utcnow)

@@ -11,7 +11,14 @@ from sqlmodel import Session
 from app.agent.runtime import AgentReasoner, get_reasoner
 from app.agent.schemas import NeedAssessment, Plan
 from app.executor.handlers import execute as executor_execute
-from app.models.agent import ActionProposal, AgentSession, Signal
+from app.models.agent import (
+    ActionProposal,
+    AgentMessage,
+    AgentSession,
+    NeedAssessmentRecord,
+    PlanRecord,
+    Signal,
+)
 from app.models.base import utcnow
 from app.models.memory import CustomerMemory
 from app.policy.engine import evaluate
@@ -27,6 +34,14 @@ class Orchestrator:
     async def handle_signal(self, db: Session, session: AgentSession, source: str, payload: dict) -> AgentSession:
         """신호 수신 → 필요도 평가 → 계획 → 리스크검토 → (자동실행 | 승인대기)."""
         db.add(Signal(session_id=session.id, source=source, payload=payload))
+        db.add(
+            AgentMessage(
+                session_id=session.id,
+                role="user" if source == "user_utterance" else "system",
+                content=self._message_content(source, payload),
+                meta={"source": source, "payload": payload},
+            )
+        )
         db.commit()
 
         transition(db, session, State.SIGNAL_DETECTED, detail={"source": source})
@@ -40,6 +55,7 @@ class Orchestrator:
         )
         self._sync_thread_ref(db, session)
         log_event(db, session.id, "need_assessment", assessment.model_dump())
+        self._record_assessment(db, session, assessment)
 
         if assessment.needs_clarification:
             transition(db, session, State.CLARIFY_USER, detail={"question": assessment.clarifying_question})
@@ -72,6 +88,7 @@ class Orchestrator:
         plan.assessment = assessment
         log_event(db, session.id, "plan", plan.model_dump())
         proposals = self._persist_plan(db, session, plan)
+        self._record_plan(db, session, plan, proposals)
 
         return await self._risk_route(db, session, proposals)
 
@@ -157,6 +174,7 @@ class Orchestrator:
             self._sync_thread_ref(db, session)
             log_event(db, session.id, "plan", {"revised": True, **plan.model_dump()})
             proposals = self._persist_plan(db, session, plan)
+            self._record_plan(db, session, plan, proposals, revised=True)
             return await self._risk_route(db, session, proposals)
 
         raise ValueError(f"알 수 없는 결정: {decision}")
@@ -209,6 +227,64 @@ class Orchestrator:
             db.add(session)
             db.commit()
             db.refresh(session)
+
+    def _record_assessment(self, db: Session, session: AgentSession, assessment: NeedAssessment) -> None:
+        db.add(
+            NeedAssessmentRecord(
+                session_id=session.id,
+                needs=self._need_levels(assessment),
+                primary_need=assessment.primary_need,
+                confidence=assessment.confidence,
+                rationale=assessment.rationale,
+                raw_output=assessment.model_dump(),
+            )
+        )
+        db.add(
+            AgentMessage(
+                session_id=session.id,
+                role="assistant",
+                content=assessment.rationale or "NeedAssessment generated.",
+                meta={"kind": "need_assessment", "primary_need": assessment.primary_need},
+            )
+        )
+        db.commit()
+
+    def _record_plan(
+        self,
+        db: Session,
+        session: AgentSession,
+        plan: Plan,
+        proposals: list[ActionProposal],
+        *,
+        revised: bool = False,
+    ) -> None:
+        db.add(
+            PlanRecord(
+                session_id=session.id,
+                explanation=plan.explanation,
+                raw_output=plan.model_dump(),
+                proposal_ids=[p.id for p in proposals],
+            )
+        )
+        db.add(
+            AgentMessage(
+                session_id=session.id,
+                role="assistant",
+                content=plan.explanation or "Plan generated.",
+                meta={
+                    "kind": "plan",
+                    "revised": revised,
+                    "proposal_ids": [p.id for p in proposals],
+                },
+            )
+        )
+        db.commit()
+
+    def _message_content(self, source: str, payload: dict) -> str:
+        if source == "user_utterance":
+            text = payload.get("text")
+            return str(text) if text else str(payload)
+        return f"{source}: {payload}"
 
 
 def evaluate_needs_approval(proposal: ActionProposal) -> bool:

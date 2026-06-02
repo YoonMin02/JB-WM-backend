@@ -153,30 +153,49 @@ erDiagram
 | payload | json | 이벤트 데이터 또는 발화 |
 | created_at | datetime | |
 
-### NeedAssessment (개념 / 기록 후보)
+### AgentMessage
 
-현재 MVP 코드는 별도 테이블 없이 `AgentEvent(type="need_assessment")`에 평가 결과를 JSON으로
-기록합니다. 실서비스에서는 감사·재현성을 위해 별도 테이블로 분리할 수 있습니다.
+고객 발화, 시스템 신호, assistant 요약을 append-only로 저장합니다.
+`AgentEvent`는 UI 타임라인이고, `AgentMessage`는 compact와 무관한 전문/감사용 기록입니다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | uuid | PK |
 | session_id | uuid | FK |
-| medical_cost_need | str | `none`/`low`/`mid`/`high` |
-| insurance_need | str | `none`/`low`/`mid`/`high` |
-| cashflow_need | str | `none`/`low`/`mid`/`high` |
-| asset_defense_need | str | `none`/`low`/`mid`/`high` |
-| investment_adjust_need | str | `none`/`low`/`mid`/`high` |
-| life_plan_need | str | `none`/`low`/`mid`/`high` |
+| role | str | `user` / `system` / `assistant` / `tool` |
+| content | str | 원문 또는 요약 |
+| metadata | json | source, payload, proposal ids 등 |
+| created_at | datetime | |
+
+### NeedAssessmentRecord
+
+`AssessNeed`의 구조화 결과를 저장합니다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| session_id | uuid | FK |
+| needs | json | 6개 need level |
 | primary_need | str | UI/설명용 주 관심축 |
 | confidence | float | |
 | rationale | str | 근거 (설명가능성) |
+| raw_output | json | 전체 구조화 출력 |
+| created_at | datetime | |
 
-### Plan / ActionProposal
+### PlanRecord / ActionProposal
+| PlanRecord 필드 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| session_id | uuid | FK |
+| explanation | str | 계획 설명 |
+| raw_output | json | 전체 구조화 출력 |
+| proposal_ids | json | 생성된 ActionProposal id 목록 |
+| created_at | datetime | |
+
 | ActionProposal 필드 | 타입 | 설명 |
 |---|---|---|
 | id | uuid | PK |
-| plan_id | uuid | FK |
+| session_id | uuid | FK |
 | kind | str | `book_hospital`,`review_insurance`… |
 | summary | str | 고객에게 보일 요약 |
 | has_external_effect | bool | **Policy 라우팅 입력** |

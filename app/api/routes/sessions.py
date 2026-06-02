@@ -7,7 +7,14 @@ from sqlmodel import Session, select
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import db_session
-from app.models.agent import ActionProposal, AgentEvent, AgentSession
+from app.models.agent import (
+    ActionProposal,
+    AgentEvent,
+    AgentMessage,
+    AgentSession,
+    NeedAssessmentRecord,
+    PlanRecord,
+)
 from app.models.customer import Customer
 from app.state_machine.states import State, allowed_actions
 
@@ -75,6 +82,56 @@ def get_events(session_id: str, db: Session = Depends(db_session)) -> dict:
         select(AgentEvent).where(AgentEvent.session_id == session_id).order_by(AgentEvent.created_at)
     ).all()
     return {"events": [{"type": e.type, "detail": e.detail, "created_at": e.created_at.isoformat()} for e in rows]}
+
+
+@router.get("/agent-sessions/{session_id}/records")
+def get_records(session_id: str, db: Session = Depends(db_session)) -> dict:
+    if not db.get(AgentSession, session_id):
+        raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    messages = db.exec(
+        select(AgentMessage)
+        .where(AgentMessage.session_id == session_id)
+        .order_by(AgentMessage.created_at)
+    ).all()
+    assessments = db.exec(
+        select(NeedAssessmentRecord)
+        .where(NeedAssessmentRecord.session_id == session_id)
+        .order_by(NeedAssessmentRecord.created_at)
+    ).all()
+    plans = db.exec(
+        select(PlanRecord).where(PlanRecord.session_id == session_id).order_by(PlanRecord.created_at)
+    ).all()
+    return {
+        "messages": [
+            {
+                "role": m.role,
+                "content": m.content,
+                "metadata": m.meta,
+                "created_at": m.created_at.isoformat(),
+            }
+            for m in messages
+        ],
+        "need_assessments": [
+            {
+                "primary_need": r.primary_need,
+                "needs": r.needs,
+                "confidence": r.confidence,
+                "rationale": r.rationale,
+                "raw_output": r.raw_output,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in assessments
+        ],
+        "plans": [
+            {
+                "explanation": p.explanation,
+                "raw_output": p.raw_output,
+                "proposal_ids": p.proposal_ids,
+                "created_at": p.created_at.isoformat(),
+            }
+            for p in plans
+        ],
+    }
 
 
 @router.post("/agent-sessions/{session_id}/signals", status_code=202)

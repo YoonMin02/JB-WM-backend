@@ -60,6 +60,13 @@ GET  /agent-sessions/{session_id}
 
 GET  /agent-sessions/{session_id}/events
 200  { "events": [{ "type", "detail", "created_at" }] }   # 타임라인 UI
+
+GET  /agent-sessions/{session_id}/records
+200  {
+       "messages": [{ "role", "content", "metadata", "created_at" }],
+       "need_assessments": [{ "primary_need", "needs", "confidence", "rationale", "raw_output", "created_at" }],
+       "plans": [{ "explanation", "raw_output", "proposal_ids", "created_at" }]
+     }
 ```
 
 > 응답에는 항상 **현재 상태 + 허용 행동 + 대기 proposal + 실패 상세**를 포함합니다.
@@ -71,13 +78,14 @@ GET  /agent-sessions/{session_id}/proposals
 200  { "proposals": [{ "id", "kind", "summary", "has_external_effect", "status" }] }
 
 POST /proposals/{proposal_id}/approve
-200  { "proposal_id", "status": "approved", "next_state": "ExecuteAction" }
+200  { ...Session }
 
 POST /proposals/{proposal_id}/reject
-200  { "proposal_id", "status": "rejected", "next_state": "NoAction" }
+200  { ...Session }
 
 POST /proposals/{proposal_id}/revise
 body: { "note": "투자는 빼고 보험만" }
+200  { ...Session }
 200  { "proposal_id", "status": "revise", "next_state": "RevisePlan" }
 ```
 

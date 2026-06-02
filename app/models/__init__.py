@@ -3,8 +3,11 @@ from app.models.agent import (
     ActionExecution,
     ActionProposal,
     AgentEvent,
+    AgentMessage,
     AgentSession,
     ApprovalDecision,
+    NeedAssessmentRecord,
+    PlanRecord,
     Signal,
 )
 from app.models.customer import Customer
@@ -46,4 +49,7 @@ __all__ = [
     "ApprovalDecision",
     "ActionExecution",
     "AgentEvent",
+    "AgentMessage",
+    "NeedAssessmentRecord",
+    "PlanRecord",
 ]

@@ -17,16 +17,16 @@
 - [ ] Codex thread 하나가 고객별 holistic agent session 하나에 대응하도록 보장한다.
 - [x] intent 상태는 전문 agent 분기가 아니라 하나의 통합 agent 안의 주된 니즈 라벨임을 코드/문서/프롬프트에 반영한다.
 - [x] thread 시작 시 `cwd`는 백엔드 소스가 아니라 안전한 agent workspace만 가리키게 한다.
-- [ ] Codex compact/요약이 발생해도 감사와 재현을 위해 원본 대화/이벤트는 DB에 별도 저장한다.
+- [x] Codex compact/요약이 발생해도 감사와 재현을 위해 원본 대화/이벤트는 DB에 별도 저장한다.
 
 ## Conversation / Transcript Persistence
 
-- [ ] 고객 발화, 시스템 신호, Codex 최종 응답/요약, 생성된 need assessment/plan을 append-only로 저장할 테이블을 추가한다.
-- [ ] 가능한 모델 예시:
+- [x] 고객 발화, 시스템 신호, Codex 최종 응답/요약, 생성된 need assessment/plan을 append-only로 저장할 테이블을 추가한다.
+- [x] 가능한 모델 예시:
   - `AgentMessage`: `session_id`, `role`, `content`, `metadata`, `created_at`
   - `NeedAssessmentRecord`: `session_id`, `needs`, `primary_need`, `confidence`, `rationale`, `raw_output`, `created_at`
   - `PlanRecord`: `session_id`, `explanation`, `raw_output`, `created_at`
-- [ ] `AgentEvent`는 타임라인/감사용 이벤트로 유지하고, 전문 대화 저장과 역할을 분리한다.
+- [x] `AgentEvent`는 타임라인/감사용 이벤트로 유지하고, 전문 대화 저장과 역할을 분리한다.
 - [ ] 개인정보/민감정보 보유기간과 동의 철회 시 파기 정책을 반영한다.
 
 ## MCP Read Tools
@@ -68,12 +68,12 @@
 
 ## Data Model Alignment
 
-- [ ] 문서의 `NeedAssessment`/`Plan` 엔티티를 실제 테이블로 만들지, `AgentEvent`/`ActionProposal`로 대체할지 결정한다.
-- [ ] 실제 테이블을 만들 경우:
-  - [ ] `NeedAssessmentRecord`
-  - [ ] `PlanRecord`
-  - [ ] `PlanRecord` 1건과 `ActionProposal` N건의 관계
-- [ ] 대체 설계를 유지할 경우 `05_DATA_MODEL.md`에서 `NeedAssessment`/`Plan` 테이블 표현을 제거하거나 "개념 모델"로 명확히 표시한다.
+- [x] 문서의 `NeedAssessment`/`Plan` 엔티티를 실제 테이블로 만들지, `AgentEvent`/`ActionProposal`로 대체할지 결정한다.
+- [x] 실제 테이블을 만들 경우:
+  - [x] `NeedAssessmentRecord`
+  - [x] `PlanRecord`
+  - [x] `PlanRecord` 1건과 `ActionProposal` N건의 관계 (`proposal_ids`로 추적)
+- [x] 대체 설계는 유지하지 않는다. `05_DATA_MODEL.md`는 실제 `NeedAssessmentRecord`/`PlanRecord` 테이블 기준으로 갱신했다.
 - [ ] `CustomerMemory.medical_willingness`를 의료비 감내 범위/지불의향으로 확장한다.
   - [ ] enum(`conservative`/`moderate`/`aggressive`)만 둘지, 금액대/월 현금흐름 비율/일회성 부담 한도를 같이 둘지 결정한다.
   - [ ] 의료 관련 plan이 비용 범위별 재무 시나리오를 생성하도록 `Plan`/`ActionProposal` 스키마 확장을 검토한다.

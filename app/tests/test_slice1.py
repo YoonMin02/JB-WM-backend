@@ -92,7 +92,13 @@ def test_init_db_renames_active_intents_column(monkeypatch):
 @pytest.mark.asyncio
 async def test_insurance_approval_flow(db: Session):
     from app.agent.orchestrator import Orchestrator
-    from app.models.agent import ActionProposal, AgentEvent
+    from app.models.agent import (
+        ActionProposal,
+        AgentEvent,
+        AgentMessage,
+        NeedAssessmentRecord,
+        PlanRecord,
+    )
 
     s = _new_session(db)
 
@@ -119,6 +125,17 @@ async def test_insurance_approval_flow(db: Session):
     types = [e.type for e in events]
     assert "need_assessment" in types and "plan" in types and "execution" in types
     assert types.count("state_transition") >= 6
+
+    messages = db.exec(select(AgentMessage).where(AgentMessage.session_id == r.id)).all()
+    assessments = db.exec(
+        select(NeedAssessmentRecord).where(NeedAssessmentRecord.session_id == r.id)
+    ).all()
+    plans = db.exec(select(PlanRecord).where(PlanRecord.session_id == r.id)).all()
+    assert [m.role for m in messages] == ["system", "assistant", "assistant"]
+    assert assessments[0].primary_need == "insurance"
+    assert assessments[0].needs["insurance_need"] == "high"
+    assert plans[0].proposal_ids
+    assert plans[0].raw_output["assessment"]["primary_need"] == "insurance"
 
 
 @pytest.mark.asyncio
@@ -209,6 +226,20 @@ def test_customer_agent_session_is_reused(db: Session):
     assert first["customer_id"] == customer_id
     assert "active_needs" in first
     assert "active_intents" not in first
+
+
+@pytest.mark.asyncio
+async def test_session_records_route(db: Session):
+    from app.agent.orchestrator import Orchestrator
+    from app.api.routes.sessions import get_records
+
+    session = _new_session(db)
+    result = await Orchestrator().handle_signal(db, session, "event", {"kind": "portfolio_loss"})
+    records = get_records(result.id, db)
+
+    assert len(records["messages"]) >= 3
+    assert records["need_assessments"][0]["primary_need"] == "cashflow"
+    assert records["plans"][0]["proposal_ids"]
 
 
 def test_api_shaped_mock_data_has_100_plus_records(db: Session):
