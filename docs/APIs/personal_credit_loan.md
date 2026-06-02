@@ -1,3 +1,8 @@
+# Personal Credit Loan Switch Precheck
+
+대출이동 개인신용대출 상환정보 사전조회 원문 형식입니다. MVP에서는 실제 대환 실행이
+아니라 `LoanSwitchPrecheck` mock DTO의 상환 가능 여부와 수수료 참고용으로만 사용합니다.
+
 요청메시지 URL
 HTTP URL	(운영) https://openapi.payinfo.or.kr/loanswitch/v1.0/loan/repayment
 (테스트) https://testapi.payinfo.or.kr:8443/loanswitch/v1.0/loan/repayment

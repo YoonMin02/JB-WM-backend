@@ -1,3 +1,8 @@
+# Insurance Payment
+
+오픈뱅킹 보험납입정보조회 원문 형식입니다. MVP에서는 월 보험료와 납입 방식이
+현금흐름에 주는 영향을 계산하기 위한 mock DTO 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/insurances/payment
 HTTP Method	POST
@@ -71,4 +76,4 @@ is_auto_pay	A(1)	자동대출납입 신청 여부
     “pay_org_code”: “097”,
     "pay_account_num": "0001230000123",
     "pay_account_num_masked": "000-1230000-***"
-}    
+}

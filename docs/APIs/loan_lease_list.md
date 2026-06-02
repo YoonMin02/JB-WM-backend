@@ -1,3 +1,8 @@
+# Loan and Lease List
+
+오픈뱅킹 대출·리스 목록조회 원문 형식입니다. MVP에서는 고객 부채 목록과 대출 유형을
+정리하기 위한 `LoanSummary` mock DTO 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/loans
 HTTP Method	GET
@@ -95,4 +100,4 @@ loan_list	<object>	대출·리스목록
     { … },
     … { … }
     ]
-}        
+}

@@ -1,3 +1,8 @@
+# Card Bill Basic
+
+오픈뱅킹 카드청구기본정보 원문 형식입니다. MVP에서는 다음 달 카드 결제 예정액과
+현금흐름 압박을 계산하기 위한 `CardBill` mock DTO 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/cards/bills
 HTTP Method	GET

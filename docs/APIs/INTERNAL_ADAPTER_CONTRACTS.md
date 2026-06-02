@@ -3,6 +3,22 @@
 외부 API 응답은 이 문서의 내부 DTO로 정규화합니다. MVP에서는 실제 외부 호출 없이
 seed/mock 데이터가 같은 shape를 반환하면 됩니다.
 
+## Scope
+
+이 문서는 **provider 원문 body를 내부에서 어떻게 해석할지**를 정의합니다.
+실제 외부 API 연결 여부와 무관하게, backend의 agent runtime은 이 내부 DTO 이후의
+데이터만 사용합니다.
+
+```text
+OpenBanking / AccountInfo / LoanSwitch raw body
+  -> provider adapter
+  -> internal DTO
+  -> agent read tool output
+```
+
+따라서 mock 개발에서는 원문 API와 1:1로 endpoint를 구현할 필요가 없습니다.
+원문 body 항목을 참고해 내부 DTO를 채우는 mock adapter를 만들면 충분합니다.
+
 ## 공통 규칙
 
 - provider 원문 금액 문자열은 `int` KRW로 변환합니다.
@@ -10,6 +26,22 @@ seed/mock 데이터가 같은 shape를 반환하면 됩니다.
 - 원문 식별자는 내부 `external_ref` 또는 adapter 내부 저장소에만 둡니다.
 - agent-facing DTO에는 token, fintech_use_num, user_seq_no, 원 계좌번호, 개인실명번호를 포함하지 않습니다.
 - 원문 응답 코드는 adapter log/audit에 저장하고, 도메인에는 정규화된 success/error만 전달합니다.
+- 원문 코드값은 adapter에서 사람이 읽을 수 있는 enum/string으로 바꿉니다.
+- pagination cursor는 adapter 내부 또는 backend tool pagination에만 쓰고, LLM 판단 컨텍스트에는 직접 넣지 않습니다.
+- agent에게 넘길 때는 고객 판단에 필요한 요약값을 우선하고, 긴 원문 리스트는 집계/발췌합니다.
+
+## NeedAssessment 입력 관점
+
+정규화된 DTO는 `AssessNeed`의 여러 필요도 판단에 함께 사용됩니다.
+
+| DTO | 주로 영향을 주는 need | 예시 |
+|---|---|---|
+| `AccountBalance` | `cashflow_need`, `asset_defense_need` | 출금가능금액 부족, 비상자금 부족 |
+| `AccountTransaction` | `medical_cost_need`, `cashflow_need` | 의료비 지출, 고정비 증가, 소비 급증 |
+| `CardBill` | `cashflow_need`, `medical_cost_need` | 다음 달 카드 결제액, 카드 의료비 |
+| `InsurancePolicySummary` | `insurance_need`, `cashflow_need` | 보장 공백, 보험료 부담 |
+| `LoanSummary` | `cashflow_need`, `asset_defense_need`, `life_plan_need` | 월상환 압박, 만기/상환일 집중 |
+| `LoanSwitchPrecheck` | `cashflow_need`, `asset_defense_need`, `investment_adjust_need` | 대환 가능성, 중도상환수수료 |
 
 ## AccountBalance
 
@@ -175,4 +207,3 @@ seed/mock 데이터가 같은 shape를 반환하면 됩니다.
 
 대출이동 관련 API는 MVP에서 **실행하지 않고 조회/사전평가 mock**으로만 사용합니다.
 대환 신청, 계좌해지, 잔고이전은 Executor only 영역입니다.
-

@@ -1,3 +1,8 @@
+# Card Bill Detail
+
+오픈뱅킹 카드청구상세정보 원문 형식입니다. MVP에서는 의료비/고정비 카드 지출을
+분류하기 위한 `CardBill.details` mock DTO 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/cards/bills/detail
 HTTP Method	GET

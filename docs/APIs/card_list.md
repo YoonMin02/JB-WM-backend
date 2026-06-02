@@ -1,3 +1,8 @@
+# Card List
+
+오픈뱅킹 카드목록조회 원문 형식입니다. MVP에서는 카드 청구 mock 데이터를 구성하기
+위한 카드사/카드상품 메타데이터 참고용으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/cards
 HTTP Method	GET

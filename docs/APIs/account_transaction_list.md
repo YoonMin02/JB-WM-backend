@@ -1,3 +1,8 @@
+# Account Transaction List
+
+오픈뱅킹 계좌 거래내역조회 원문 형식입니다. MVP에서는 의료비, 고정비, 현금흐름
+이벤트를 감지하기 위한 `AccountTransaction` mock DTO의 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/account/transaction_list/fin_num
 HTTP Method	GET

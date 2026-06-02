@@ -1,3 +1,8 @@
+# Insurance List
+
+오픈뱅킹 보험목록조회 원문 형식입니다. MVP에서는 보장 공백과 보험 상태를 판단하기
+위한 `InsurancePolicySummary` mock DTO 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/insurances
 HTTP Method	GET
@@ -83,4 +88,4 @@ insu_list	<object>	보험목록
     { … },
     … { … }
     ]
-}     
+}

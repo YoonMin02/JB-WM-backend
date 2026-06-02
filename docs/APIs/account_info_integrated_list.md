@@ -1,3 +1,8 @@
+# AccountInfo Integrated Account List
+
+어카운트인포 계좌통합조회 원문 형식입니다. MVP에서는 흩어진 계좌와 유동성 요약을
+구성하기 위한 `AccountBalance` 보조 입력으로만 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/accountinfo/list
 HTTP Method	POST

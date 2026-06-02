@@ -1,3 +1,8 @@
+# Jeonse Loan Switch Precheck
+
+대출이동 전세대출 상환정보 사전조회 원문 형식입니다. MVP에서는 실제 대환 실행이
+아니라 `LoanSwitchPrecheck` mock DTO의 상환 가능 여부와 수수료 참고용으로만 사용합니다.
+
 요청 메시지 명세
 HTTP	항목	항목명	필수	min	max	타입	데이터
 header	api_trx_num	API 거래고유번호	Y	20	20	String	AN(20)

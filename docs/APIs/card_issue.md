@@ -1,3 +1,8 @@
+# Card Issue Info
+
+오픈뱅킹 카드기본정보조회 원문 형식입니다. MVP에서는 카드 상태와 상품 정보를
+`CardBill` 계열 mock 데이터에 붙이는 참고용으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/cards/issue_info
 HTTP Method	GET

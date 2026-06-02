@@ -1,3 +1,8 @@
+# Account Balance
+
+오픈뱅킹 계좌 잔액조회 원문 형식입니다. MVP에서는 `AccountBalance` mock DTO를
+만들기 위한 금액/날짜/body 항목 참고용으로만 사용합니다.
+
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/account/balance/fin_num
 HTTP Method	GET
 요청 메시지 명세

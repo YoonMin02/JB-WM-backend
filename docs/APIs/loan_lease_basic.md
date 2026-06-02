@@ -1,3 +1,8 @@
+# Loan and Lease Basic
+
+오픈뱅킹 대출·리스 기본/거래정보 원문 형식입니다. MVP에서는 상환일, 상환방식,
+최근 상환 거래를 구성하기 위한 `LoanSummary` mock DTO 기준으로 사용합니다.
+
 요청메시지 URL
 HTTP URL	https://openapi.openbanking.or.kr/v2.0/loans/basic
 HTTP Method	POST
@@ -97,4 +102,4 @@ res_list		조회된 거래내역
     },
     { … }, … 
     ]
-}        
+}
