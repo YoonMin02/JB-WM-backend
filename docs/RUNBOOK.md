@@ -132,10 +132,11 @@ curl -s localhost:8000/agent-sessions/$SID/events        # 감사 타임라인
 `REASONER=codex`일 때, 백엔드는 `build_context`를 JSON 파일로 워크스페이스에 씁니다 (`app/agent/codex_adapter.py` `_write_workspace`). 기본 위치 `CODEX_WORKING_DIRECTORY=./workspace`:
 
 ```bash
-ls ~/JB-WM/JB-WM-backend/workspace/         # jbwm_ws_XXXX/ 디렉토리들
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_ws_*/portfolio.json   # 모델이 읽은 자산
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_ws_*/population.json  # 모델이 읽은 통계
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_ws_*/memory.json      # 지불의향·제약
+ls ~/JB-WM/JB-WM-backend/workspace/         # jbwm_customer_<customer_id>/ 디렉토리들
+cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/portfolio.json    # 모델이 읽은 자산
+cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/population.json   # 모델이 읽은 통계
+cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/transactions.json # 모델이 읽은 거래 요약
+cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/memory.json       # 지불의향·제약
 ```
 → 샌드박스는 `read_only`. 모델은 이 파일들을 읽기만 하고 쓰지/실행하지 못합니다.
 

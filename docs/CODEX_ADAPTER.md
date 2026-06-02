@@ -187,3 +187,13 @@ timeout 120s .venv/bin/python scripts/codex_smoke_test.py
 ```
 
 SDK/OAuth 진입부가 native subprocess에서 대기하면 Python 내부 timeout으로 안정적으로 끊기지 않을 수 있으므로, smoke test는 shell의 `timeout`으로 감쌉니다.
+
+어댑터는 단계별 로그를 남깁니다. 멈춤 위치를 구분할 때 아래 로그를 봅니다.
+
+- `codex run start`
+- `codex workspace prepared`
+- `codex opening client`
+- `codex client opened`
+- `codex thread start begin` / `codex thread resume start`
+- `codex turn run begin`
+- `codex turn ok`

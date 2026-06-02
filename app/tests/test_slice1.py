@@ -1,6 +1,8 @@
 """핵심 루프 종단 테스트 — StubReasoner로 승인/통합 회복탄력성 루프 검증."""
 from __future__ import annotations
 
+import json
+
 import pytest
 from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Session, create_engine, select
@@ -285,6 +287,28 @@ def test_financial_read_tools_hide_provider_identifiers(db: Session):
     serialized = str({"balances": balances, "transactions": transactions, "card_bills": card_bills, "precheck": precheck})
     for hidden in ("fintech_use_num", "user_seq_no", "card_value", "api_tran_id", "bank_tran_id"):
         assert hidden not in serialized
+
+
+def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatch, tmp_path):
+    from app.agent.codex_adapter import _write_workspace
+    from app.core.config import settings
+    from app.tools.data_tools import build_context
+
+    monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
+    ctx = build_context(db, _customer_id(db))
+
+    workspace = _write_workspace(ctx)
+    files = {p.name for p in workspace.iterdir()}
+
+    assert "customer_id.json" not in files
+    assert "profile.json" in files
+    assert "accounts.json" in files
+    assert "transactions.json" in files
+    assert "memory.json" in files
+    assert not any(name.endswith(".py") for name in files)
+
+    accounts = json.loads((workspace / "accounts.json").read_text(encoding="utf-8"))
+    assert accounts["liquidity_summary"]["available_cash_krw"] > 0
 
 
 @pytest.mark.asyncio

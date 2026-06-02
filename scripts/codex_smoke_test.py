@@ -28,12 +28,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.agent.codex_adapter import CodexReasoner  # noqa: E402
+from app.core.logging import configure_logging  # noqa: E402
 from app.models.customer import Customer  # noqa: E402
 from app.seed import seed_if_empty  # noqa: E402
 from app.tools.data_tools import build_context  # noqa: E402
 
 
 async def main() -> None:
+    configure_logging()
     print("smoke: preparing in-memory seed data", flush=True)
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool

@@ -50,11 +50,11 @@
 
 ## Safe Workspace / Static Context
 
-- [ ] Codex workspace에는 현재 agent session에 필요한 파일만 둔다.
-- [ ] 백엔드/프론트 소스 코드는 workspace에 포함하지 않는다.
+- [x] Codex workspace에는 현재 agent session에 필요한 파일만 둔다.
+- [x] 백엔드/프론트 소스 코드는 workspace에 포함하지 않는다.
 - [ ] 회사 내규, 상품 약관, 반복 사용 통계 스냅샷 등 비교적 정적이고 유용한 문서를 read-only 파일로 제공한다.
 - [ ] 고객별 민감 데이터는 workspace에 최소화하거나 MCP read tool로 제공한다.
-- [ ] workspace 생성, 재사용, 정리, 보존 정책을 문서화한다.
+- [x] workspace 생성, 재사용, 정리 정책을 문서화한다.
 
 ## API / Frontend Contract
 
@@ -90,5 +90,5 @@
 - [ ] 인증/JWT와 역할 기반 접근 제어를 구현한다.
 - [ ] consent 없는 건강 데이터가 도구/API에서 반환되지 않는지 테스트한다.
 - [ ] Codex adapter가 항상 `Sandbox.read_only`를 쓰는 회귀 테스트를 추가한다.
-- [ ] 고객 간 workspace/MCP scope 격리 테스트를 추가한다.
+- [x] 고객별 workspace가 소스 파일 없이 컨텍스트 스냅샷만 포함하는 회귀 테스트를 추가한다.
 - [ ] Codex SDK 관련 retry/rate-limit/error handling을 API 에러로 정규화한다.

@@ -97,6 +97,7 @@ def _write_workspace(ctx: dict) -> Path:
         (root / f"{name}.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+    logger.info("codex workspace prepared path=%s files=%s", root, sorted(p.name for p in root.glob("*.json")))
     return root
 
 
@@ -113,22 +114,35 @@ class CodexReasoner:
 
     async def _run(self, prompt: str, ctx: dict, schema_model: type, session_ref: str | None = None):
         # 지연 import: stub reasoner 사용 시 openai_codex 미설치여도 동작하도록
+        logger.info(
+            "codex run start schema=%s resume=%s customer_id=%s",
+            schema_model.__name__,
+            bool(session_ref),
+            ctx.get("customer_id"),
+        )
         from openai_codex import AsyncCodex, Sandbox
 
         _guard.check()  # 쿼터 보호 — 한도 초과 시 CodexRateLimited
         workspace = _write_workspace(ctx)
+        logger.info("codex opening client schema=%s", schema_model.__name__)
         async with AsyncCodex() as codex:
+            logger.info("codex client opened schema=%s", schema_model.__name__)
             if session_ref:
+                logger.info("codex thread resume start thread=%s", session_ref)
                 thread = await codex.thread_resume(session_ref)
+                logger.info("codex thread resume ok thread=%s", thread.id)
             else:
                 # 기존 `codex login` OAuth 세션 자동 재사용.
+                logger.info("codex thread start begin model=%s cwd=%s", settings.codex_model, workspace)
                 thread = await codex.thread_start(
                     model=settings.codex_model,
                     sandbox=Sandbox.read_only,  # ★ capability 보안
                     developer_instructions=SYSTEM_INSTRUCTIONS,
                     cwd=str(workspace),
                 )
+                logger.info("codex thread start ok thread=%s", thread.id)
             self.last_thread_id = thread.id
+            logger.info("codex turn run begin thread=%s schema=%s", thread.id, schema_model.__name__)
             result = await thread.run(prompt, output_schema=_strict_schema(schema_model))
             if result.status == "failed":
                 raise RuntimeError(f"Codex turn 실패: {result.error}")
