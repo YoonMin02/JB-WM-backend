@@ -13,7 +13,20 @@ def _format_krw(value: int | float) -> str:
 
 
 class StubReasoner:
+    def __init__(self) -> None:
+        self.last_thread_id: str | None = None
+
+    async def start_session(self, customer_id: str, ctx: dict) -> str:
+        self.last_thread_id = f"stub-thread-{customer_id}"
+        return self.last_thread_id
+
+    async def resume_session(self, session_ref: str) -> str:
+        self.last_thread_id = session_ref
+        return session_ref
+
     async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
+        if session_ref:
+            await self.resume_session(session_ref)
         payload = signal.get("payload", {})
         kind = str(payload.get("kind", "")).lower()
         text = str(payload.get("text", "")).lower()
@@ -86,6 +99,8 @@ class StubReasoner:
     async def generate_plan(
         self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
     ) -> Plan:
+        if session_ref:
+            await self.resume_session(session_ref)
         if assessment.cashflow_need in ("mid", "high") or assessment.asset_defense_need in ("mid", "high"):
             return self._asset_defense_plan(assessment, ctx, memory)
         if assessment.insurance_need == "none" and assessment.medical_cost_need == "none":

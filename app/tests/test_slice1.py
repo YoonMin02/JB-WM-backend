@@ -414,9 +414,19 @@ async def test_customer_session_reuses_reasoner_thread_ref(db: Session):
             self.last_thread_id: str | None = None
             self.calls: list[tuple[str, str | None]] = []
 
+        async def start_session(self, customer_id: str, ctx: dict) -> str:
+            self.calls.append(("start", None))
+            self.last_thread_id = f"thread-{customer_id}"
+            return self.last_thread_id
+
+        async def resume_session(self, session_ref: str) -> str:
+            self.calls.append(("resume", session_ref))
+            self.last_thread_id = session_ref
+            return session_ref
+
         async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
             self.calls.append(("assess", session_ref))
-            self.last_thread_id = session_ref or "thread-customer-1"
+            self.last_thread_id = session_ref
             return NeedAssessment(
                 primary_need="cashflow",
                 cashflow_need="high",
@@ -442,14 +452,16 @@ async def test_customer_session_reuses_reasoner_thread_ref(db: Session):
 
     first = await orchestrator.handle_signal(db, session, "event", {"kind": "portfolio_loss"})
     assert first.state == "Monitoring"
-    assert first.agent_thread_id == "thread-customer-1"
+    assert first.agent_thread_id == f"thread-{first.customer_id}"
 
     second = await orchestrator.handle_signal(db, first, "event", {"kind": "spending_spike"})
     assert second.state == "Monitoring"
-    assert second.agent_thread_id == "thread-customer-1"
+    assert second.agent_thread_id == f"thread-{first.customer_id}"
     assert reasoner.calls == [
-        ("assess", None),
-        ("plan", "thread-customer-1"),
-        ("assess", "thread-customer-1"),
-        ("plan", "thread-customer-1"),
+        ("start", None),
+        ("assess", f"thread-{first.customer_id}"),
+        ("plan", f"thread-{first.customer_id}"),
+        ("resume", f"thread-{first.customer_id}"),
+        ("assess", f"thread-{first.customer_id}"),
+        ("plan", f"thread-{first.customer_id}"),
     ]

@@ -112,6 +112,26 @@ class CodexReasoner:
     def __init__(self) -> None:
         self.last_thread_id: str | None = None
 
+    async def start_session(self, customer_id: str, ctx: dict) -> str:
+        logger.info("codex session start customer_id=%s", customer_id)
+        from openai_codex import AsyncCodex, Sandbox
+
+        workspace = _write_workspace(ctx)
+        async with AsyncCodex() as codex:
+            thread = await codex.thread_start(
+                model=settings.codex_model,
+                sandbox=Sandbox.read_only,
+                developer_instructions=SYSTEM_INSTRUCTIONS,
+                cwd=str(workspace),
+            )
+        self.last_thread_id = thread.id
+        logger.info("codex session start ok thread=%s", thread.id)
+        return thread.id
+
+    async def resume_session(self, session_ref: str) -> str:
+        self.last_thread_id = session_ref
+        return session_ref
+
     async def _run(self, prompt: str, ctx: dict, schema_model: type, session_ref: str | None = None):
         # 지연 import: stub reasoner 사용 시 openai_codex 미설치여도 동작하도록
         logger.info(

@@ -49,6 +49,7 @@ class Orchestrator:
 
         ctx = build_context(db, session.customer_id)
         log_event(db, session.id, "tool_call", {"tool": "build_context"})
+        await self._ensure_reasoner_session(db, session, ctx)
 
         assessment = await self.reasoner.assess_need(
             {"source": source, "payload": payload}, ctx, session.agent_thread_id
@@ -168,6 +169,7 @@ class Orchestrator:
             transition(db, session, State.REVISE_PLAN, detail={"note": note})
             # 재계획: 의도 유지하고 plan 재생성
             ctx = build_context(db, session.customer_id)
+            await self._ensure_reasoner_session(db, session, ctx)
             assessment = self._assessment_from_session(session)
             transition(db, session, State.GENERATE_PLAN)
             plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}), session.agent_thread_id)
@@ -227,6 +229,18 @@ class Orchestrator:
             db.add(session)
             db.commit()
             db.refresh(session)
+
+    async def _ensure_reasoner_session(self, db: Session, session: AgentSession, ctx: dict) -> None:
+        if session.agent_thread_id:
+            await self.reasoner.resume_session(session.agent_thread_id)
+            self._sync_thread_ref(db, session)
+            return
+        thread_id = await self.reasoner.start_session(session.customer_id, ctx)
+        session.agent_thread_id = thread_id
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        log_event(db, session.id, "thread", {"thread_id": thread_id, "action": "start"})
 
     def _record_assessment(self, db: Session, session: AgentSession, assessment: NeedAssessment) -> None:
         db.add(

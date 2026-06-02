@@ -50,12 +50,14 @@ from app.agent.schemas import NeedAssessment, Plan
 class AgentReasoner(Protocol):
     """공급자 무관 추론 인터페이스. Codex/Gemini/Anthropic 등이 구현."""
 
-    async def start_session(self, customer_id: str, *, system: str) -> str:
+    last_thread_id: str | None
+
+    async def start_session(self, customer_id: str, ctx: dict) -> str:
         """추론 세션 시작. 반환: 재개용 세션/thread id."""
         ...
 
-    async def resume_session(self, session_ref: str) -> None:
-        """기존 세션 재개."""
+    async def resume_session(self, session_ref: str) -> str:
+        """기존 세션 재개. 반환: 같은 세션/thread id."""
         ...
 
     async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
@@ -111,13 +113,12 @@ LLM이 상태머신에 들어가는 곳은 두 군데가 중심입니다.
 | `agent_session.id` | 고객별 active holistic agent session 식별자 |
 | `agent_session.agent_thread_id` | 해당 고객 agent의 Codex thread 참조 |
 
-기본은 고객 1명당 active holistic agent session 1개입니다. `start_session()` 직후
-Codex thread id를 즉시 영속화하여, 프로세스가 재시작해도 같은 고객 agent thread를
-재개할 수 있게 합니다. 별도 시뮬레이션, 감사 분리, thread rollover 같은 경우에만
-예외적으로 새 session/thread를 만듭니다.
-
-현재 구현은 `AgentSession.agent_thread_id`가 있으면 Codex adapter가 `thread_resume()`을
-사용하고, 없으면 `thread_start()` 후 반환된 thread id를 세션에 저장합니다.
+기본은 고객 1명당 active holistic agent session 1개입니다. Orchestrator는 첫 신호 처리 전에
+`start_session(customer_id, ctx)`를 호출하고 Codex thread id를 즉시 영속화하여, 프로세스가
+재시작해도 같은 고객 agent thread를 재개할 수 있게 합니다. 이후 `AssessNeed`,
+`GeneratePlan`, `RevisePlan`은 저장된 `agent_thread_id`로 `resume_session()`/`thread_resume()`을
+사용합니다. 별도 시뮬레이션, 감사 분리, thread rollover 같은 경우에만 예외적으로 새
+session/thread를 만듭니다.
 
 ## 구조화 출력
 

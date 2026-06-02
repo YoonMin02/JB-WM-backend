@@ -5,8 +5,8 @@
 
 ## Codex Thread = Customer Holistic Agent Session
 
-- [ ] `AgentReasoner` 포트에 세션 생명주기 메서드를 명확히 둔다.
-  - `start_session(customer_id, system/context) -> thread_id`
+- [x] `AgentReasoner` 포트에 세션 생명주기 메서드를 명확히 둔다.
+  - `start_session(customer_id, ctx) -> thread_id`
   - `resume_session(thread_id)`
   - `assess_need(...)`
   - `generate_plan(...)`
@@ -14,7 +14,7 @@
 - [x] 기본은 고객 1명당 active holistic `AgentSession` 1개로 제한한다.
 - [x] `POST /customers/{customer_id}/agent-sessions` 시 기존 active session을 재사용한다.
 - [x] 이후 signal, revise 요청은 새 thread가 아니라 기존 thread를 `thread_resume()`으로 이어간다.
-- [ ] Codex thread 하나가 고객별 holistic agent session 하나에 대응하도록 보장한다.
+- [x] Codex thread 하나가 고객별 holistic agent session 하나에 대응하도록 보장한다.
 - [x] intent 상태는 전문 agent 분기가 아니라 하나의 통합 agent 안의 주된 니즈 라벨임을 코드/문서/프롬프트에 반영한다.
 - [x] thread 시작 시 `cwd`는 백엔드 소스가 아니라 안전한 agent workspace만 가리키게 한다.
 - [x] Codex compact/요약이 발생해도 감사와 재현을 위해 원본 대화/이벤트는 DB에 별도 저장한다.

@@ -62,6 +62,10 @@ async with AsyncCodex() as codex:
 thread = await codex.thread_resume(session.agent_thread_id)
 ```
 
+현재 구현에서는 Orchestrator가 첫 신호 처리 전에 `CodexReasoner.start_session(customer_id, ctx)`를
+호출해 thread id를 먼저 만들고 DB에 저장합니다. 그 뒤 `assess_need()`와 `generate_plan()`은
+항상 저장된 `session_ref`로 같은 thread를 재개합니다.
+
 `thread_start`/`thread_resume`/`thread_fork`/`thread_list`/`thread_archive` 지원 ([api-reference](#)). 기본 `approval_mode=ApprovalMode.auto_review` — 단, **비즈니스 액션 승인은 Codex의 승인이 아니라 우리 FSM 게이트**가 담당 ([07](07_ACTION_EXECUTION.md)).
 
 ## 턴 실행

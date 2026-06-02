@@ -24,6 +24,16 @@ class CustomerContext(Protocol):
 class AgentReasoner(Protocol):
     """추론 백엔드. 판단·계획만 한다. 상태 변경·실행은 하지 않는다."""
 
+    last_thread_id: str | None
+
+    async def start_session(self, customer_id: str, ctx: dict) -> str:
+        """고객별 holistic 추론 세션을 시작하고 재개용 참조를 반환한다."""
+        ...
+
+    async def resume_session(self, session_ref: str) -> str:
+        """기존 추론 세션 참조를 활성화하고 같은 참조를 반환한다."""
+        ...
+
     async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         """신호 + 읽기 전용 컨텍스트 → 통합 필요도 평가."""
         ...
