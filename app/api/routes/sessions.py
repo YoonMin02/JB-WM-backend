@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import db_session
+from app.api.errors import reasoner_http_exception
 from app.models.agent import (
     ActionProposal,
     AgentEvent,
@@ -136,7 +137,7 @@ def get_records(session_id: str, db: Session = Depends(db_session)) -> dict:
 
 @router.post("/agent-sessions/{session_id}/signals", status_code=202)
 async def post_signal(session_id: str, body: SignalIn, db: Session = Depends(db_session)) -> dict:
-    from app.agent.codex_adapter import CodexRateLimited
+    from app.agent.codex_adapter import CodexRateLimited, CodexReasoningError
 
     s = db.get(AgentSession, session_id)
     if not s:
@@ -145,6 +146,6 @@ async def post_signal(session_id: str, body: SignalIn, db: Session = Depends(db_
         raise HTTPException(409, f"신호는 Monitoring 상태에서만 받습니다 (현재: {s.state}).")
     try:
         s = await Orchestrator().handle_signal(db, s, body.source, body.payload)
-    except CodexRateLimited as e:
-        raise HTTPException(429, f"추론 호출 한도 초과: {e}") from e
+    except (CodexRateLimited, CodexReasoningError) as e:
+        raise reasoner_http_exception(e) from e
     return serialize_session(db, s)

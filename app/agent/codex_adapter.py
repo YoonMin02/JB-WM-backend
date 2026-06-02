@@ -12,7 +12,10 @@ import json
 import tempfile
 import threading
 import time
+from json import JSONDecodeError
 from pathlib import Path
+
+from pydantic import ValidationError
 
 from app.agent.schemas import LLMPlan, NeedAssessment, Plan
 from app.core.config import settings
@@ -21,6 +24,32 @@ from app.core.logging import logger
 
 class CodexRateLimited(RuntimeError):
     """설정된 호출 한도 초과 (쿼터 보호)."""
+
+
+class CodexReasoningError(RuntimeError):
+    """API 계층에서 정규화할 수 있는 Codex adapter 오류."""
+
+    status_code = 502
+    error_code = "codex_reasoning_error"
+
+
+class CodexUnavailable(CodexReasoningError):
+    """SDK/OAuth/runtime 연결 문제."""
+
+    status_code = 503
+    error_code = "codex_unavailable"
+
+
+class CodexTurnFailed(CodexReasoningError):
+    """Codex turn 자체가 failed 상태로 끝남."""
+
+    error_code = "codex_turn_failed"
+
+
+class CodexOutputError(CodexReasoningError):
+    """Codex 응답이 요구한 구조화 스키마를 만족하지 않음."""
+
+    error_code = "codex_output_error"
 
 
 class _RateGuard:
@@ -103,9 +132,12 @@ def _write_workspace(ctx: dict) -> Path:
 
 def _parse(raw: str | None, model: type):
     if not raw:
-        raise ValueError("Codex가 빈 응답을 반환했습니다.")
-    data = json.loads(raw)
-    return model.model_validate(data)
+        raise CodexOutputError("Codex가 빈 응답을 반환했습니다.")
+    try:
+        data = json.loads(raw)
+        return model.model_validate(data)
+    except (JSONDecodeError, ValidationError) as e:
+        raise CodexOutputError(f"Codex 구조화 응답 검증 실패: {e}") from e
 
 
 class CodexReasoner:
@@ -114,19 +146,24 @@ class CodexReasoner:
 
     async def start_session(self, customer_id: str, ctx: dict) -> str:
         logger.info("codex session start customer_id=%s", customer_id)
-        from openai_codex import AsyncCodex, Sandbox
+        try:
+            from openai_codex import AsyncCodex, Sandbox
 
-        workspace = _write_workspace(ctx)
-        async with AsyncCodex() as codex:
-            thread = await codex.thread_start(
-                model=settings.codex_model,
-                sandbox=Sandbox.read_only,
-                developer_instructions=SYSTEM_INSTRUCTIONS,
-                cwd=str(workspace),
-            )
-        self.last_thread_id = thread.id
-        logger.info("codex session start ok thread=%s", thread.id)
-        return thread.id
+            workspace = _write_workspace(ctx)
+            async with AsyncCodex() as codex:
+                thread = await codex.thread_start(
+                    model=settings.codex_model,
+                    sandbox=Sandbox.read_only,
+                    developer_instructions=SYSTEM_INSTRUCTIONS,
+                    cwd=str(workspace),
+                )
+            self.last_thread_id = thread.id
+            logger.info("codex session start ok thread=%s", thread.id)
+            return thread.id
+        except CodexReasoningError:
+            raise
+        except Exception as e:
+            raise CodexUnavailable(f"Codex 세션 시작 실패: {e}") from e
 
     async def resume_session(self, session_ref: str) -> str:
         self.last_thread_id = session_ref
@@ -140,34 +177,39 @@ class CodexReasoner:
             bool(session_ref),
             ctx.get("customer_id"),
         )
-        from openai_codex import AsyncCodex, Sandbox
-
         _guard.check()  # 쿼터 보호 — 한도 초과 시 CodexRateLimited
-        workspace = _write_workspace(ctx)
-        logger.info("codex opening client schema=%s", schema_model.__name__)
-        async with AsyncCodex() as codex:
-            logger.info("codex client opened schema=%s", schema_model.__name__)
-            if session_ref:
-                logger.info("codex thread resume start thread=%s", session_ref)
-                thread = await codex.thread_resume(session_ref)
-                logger.info("codex thread resume ok thread=%s", thread.id)
-            else:
-                # 기존 `codex login` OAuth 세션 자동 재사용.
-                logger.info("codex thread start begin model=%s cwd=%s", settings.codex_model, workspace)
-                thread = await codex.thread_start(
-                    model=settings.codex_model,
-                    sandbox=Sandbox.read_only,  # ★ capability 보안
-                    developer_instructions=SYSTEM_INSTRUCTIONS,
-                    cwd=str(workspace),
-                )
-                logger.info("codex thread start ok thread=%s", thread.id)
-            self.last_thread_id = thread.id
-            logger.info("codex turn run begin thread=%s schema=%s", thread.id, schema_model.__name__)
-            result = await thread.run(prompt, output_schema=_strict_schema(schema_model))
-            if result.status == "failed":
-                raise RuntimeError(f"Codex turn 실패: {result.error}")
-            logger.info("codex turn ok (thread=%s)", thread.id)
-            return _parse(result.final_response, schema_model)
+        try:
+            from openai_codex import AsyncCodex, Sandbox
+
+            workspace = _write_workspace(ctx)
+            logger.info("codex opening client schema=%s", schema_model.__name__)
+            async with AsyncCodex() as codex:
+                logger.info("codex client opened schema=%s", schema_model.__name__)
+                if session_ref:
+                    logger.info("codex thread resume start thread=%s", session_ref)
+                    thread = await codex.thread_resume(session_ref)
+                    logger.info("codex thread resume ok thread=%s", thread.id)
+                else:
+                    # 기존 `codex login` OAuth 세션 자동 재사용.
+                    logger.info("codex thread start begin model=%s cwd=%s", settings.codex_model, workspace)
+                    thread = await codex.thread_start(
+                        model=settings.codex_model,
+                        sandbox=Sandbox.read_only,  # ★ capability 보안
+                        developer_instructions=SYSTEM_INSTRUCTIONS,
+                        cwd=str(workspace),
+                    )
+                    logger.info("codex thread start ok thread=%s", thread.id)
+                self.last_thread_id = thread.id
+                logger.info("codex turn run begin thread=%s schema=%s", thread.id, schema_model.__name__)
+                result = await thread.run(prompt, output_schema=_strict_schema(schema_model))
+                if result.status == "failed":
+                    raise CodexTurnFailed(f"Codex turn 실패: {result.error}")
+                logger.info("codex turn ok (thread=%s)", thread.id)
+                return _parse(result.final_response, schema_model)
+        except CodexReasoningError:
+            raise
+        except Exception as e:
+            raise CodexUnavailable(f"Codex 실행 실패: {e}") from e
 
     async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         prompt = (

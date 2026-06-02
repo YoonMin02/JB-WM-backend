@@ -93,4 +93,4 @@
 - [x] consent 없는 건강 데이터가 도구/API에서 반환되지 않는지 테스트한다.
 - [x] Codex adapter가 항상 `Sandbox.read_only`를 쓰는 회귀 테스트를 추가한다.
 - [x] 고객별 workspace가 소스 파일 없이 컨텍스트 스냅샷만 포함하는 회귀 테스트를 추가한다.
-- [ ] Codex SDK 관련 retry/rate-limit/error handling을 API 에러로 정규화한다.
+- [x] Codex SDK 관련 rate-limit/error handling을 API 에러로 정규화한다.

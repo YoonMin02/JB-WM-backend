@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from app.agent.orchestrator import Orchestrator
 from app.api.deps import db_session
+from app.api.errors import reasoner_http_exception
 from app.api.routes.sessions import serialize_session
 from app.models.agent import ActionProposal, AgentSession
 
@@ -47,12 +48,12 @@ async def _decide(db: Session, proposal_id: str, decision: str, note: str = "") 
 
     db.add(ApprovalDecision(proposal_id=proposal_id, decision=decision, note=note))
     db.commit()
-    from app.agent.codex_adapter import CodexRateLimited
+    from app.agent.codex_adapter import CodexRateLimited, CodexReasoningError
 
     try:
         s = await Orchestrator().apply_decision(db, s, decision, note)
-    except CodexRateLimited as e:
-        raise HTTPException(429, f"추론 호출 한도 초과: {e}") from e
+    except (CodexRateLimited, CodexReasoningError) as e:
+        raise reasoner_http_exception(e) from e
     except ValueError as e:
         raise HTTPException(409, str(e)) from e
     return serialize_session(db, s)

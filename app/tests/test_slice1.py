@@ -341,6 +341,40 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     assert accounts["liquidity_summary"]["available_cash_krw"] > 0
 
 
+def test_codex_parse_error_is_normalized():
+    from app.agent.codex_adapter import CodexOutputError, _parse
+    from app.agent.schemas import NeedAssessment
+
+    with pytest.raises(CodexOutputError):
+        _parse("{not json", NeedAssessment)
+
+
+@pytest.mark.asyncio
+async def test_signal_route_normalizes_reasoner_errors(db: Session, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.agent.codex_adapter import CodexUnavailable
+    import app.api.routes.sessions as sessions_route
+
+    class FailingOrchestrator:
+        async def handle_signal(self, db: Session, session, source: str, payload: dict):
+            raise CodexUnavailable("OAuth 세션을 찾을 수 없습니다.")
+
+    session = _new_session(db)
+    monkeypatch.setattr(sessions_route, "Orchestrator", FailingOrchestrator)
+
+    with pytest.raises(HTTPException) as exc:
+        await sessions_route.post_signal(
+            session.id,
+            sessions_route.SignalIn(source="event", payload={"kind": "portfolio_loss"}),
+            db,
+        )
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail["error"] == "codex_unavailable"
+    assert "OAuth" in exc.value.detail["message"]
+
+
 @pytest.mark.asyncio
 async def test_codex_adapter_starts_thread_read_only(monkeypatch, tmp_path):
     from app.agent.codex_adapter import CodexReasoner

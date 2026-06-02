@@ -140,7 +140,14 @@ async def run_with_retry(thread, prompt, schema):
 | `ServerBusyError` | `retry_on_overload` 재시도 |
 | `InvalidParamsError` | 입력 수정, 재시도 금지 |
 | `MethodNotFoundError` | SDK/런타임 버전 불일치, 재시도 금지 |
-| `result.status == "failed"` | `result.error` 읽고 세션 `Failed` 전이 ([03](03_STATE_MACHINE.md)) |
+| `result.status == "failed"` | `CodexTurnFailed`로 정규화 → API 502 |
+| 빈 응답 / JSON 파싱 실패 / 스키마 검증 실패 | `CodexOutputError`로 정규화 → API 502 |
+| SDK/OAuth/runtime 연결 실패 | `CodexUnavailable`로 정규화 → API 503 |
+| rate guard 초과 | `CodexRateLimited` → API 429 |
+
+API 라우트는 위 오류를 `{ error, message }` 형태의 `HTTPException.detail`로 반환합니다. 실행 실패와
+추론 실패는 다릅니다. `State.Failed`는 현재 Executor 실행 실패 경로이고, Codex 추론 실패는 API 오류로
+정규화합니다.
 
 ## 호출 한도 (Rate Guard)
 
