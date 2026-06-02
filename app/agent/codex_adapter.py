@@ -69,7 +69,8 @@ def _strict_schema(model: type) -> dict:
 
 SYSTEM_INSTRUCTIONS = (
     "당신은 JB WM의 분석 보조 에이전트입니다. 워크스페이스의 고객 데이터 파일"
-    "(profile/health/insurance/loans/memory.json)과 규정 파일을 읽고 분석합니다. "
+    "(profile/health/insurance/accounts/transactions/card_bills/loans/portfolio/"
+    "asset_events/population/memory.json)과 규정 파일을 읽고 분석합니다. "
     "당신은 읽기·분석·제안만 합니다. 어떤 실제 행동(예약·청구·송금)도 실행하지 않으며, "
     "그럴 권한도 없습니다. 항상 요청된 JSON 스키마에 맞는 결과만 반환하세요."
 )
@@ -78,8 +79,7 @@ SYSTEM_INSTRUCTIONS = (
 def _write_workspace(ctx: dict) -> Path:
     """현재 고객 컨텍스트를 read-only 워크스페이스 파일로 기록.
 
-    build_context의 모든 키(profile/health/insurance/loans/portfolio/
-    asset_events/population/memory)를 각각 JSON 파일로 materialize한다.
+    build_context의 모든 JSON-like 키를 각각 `<key>.json` 파일로 materialize한다.
     customer_id 같은 스칼라는 제외.
     """
     base = settings.codex_working_directory or None

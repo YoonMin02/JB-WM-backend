@@ -296,6 +296,12 @@ cp .env.example .env
 
 # 4. 개발 서버
 uvicorn app.main:app --reload   # GET /health
+
+# 5. 테스트
+pytest -q
+
+# 6. 실제 SDK 연동 smoke (OAuth 세션 필요)
+timeout 120s .venv/bin/python scripts/codex_smoke_test.py
 ```
 
 ---

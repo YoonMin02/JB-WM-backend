@@ -197,3 +197,54 @@ def test_financial_read_tools_hide_provider_identifiers(db: Session):
     serialized = str({"balances": balances, "transactions": transactions, "card_bills": card_bills, "precheck": precheck})
     for hidden in ("fintech_use_num", "user_seq_no", "card_value", "api_tran_id", "bank_tran_id"):
         assert hidden not in serialized
+
+
+@pytest.mark.asyncio
+async def test_customer_session_reuses_reasoner_thread_ref(db: Session):
+    from app.agent.orchestrator import Orchestrator
+    from app.agent.schemas import NeedAssessment, Plan
+
+    class RecordingReasoner:
+        def __init__(self) -> None:
+            self.last_thread_id: str | None = None
+            self.calls: list[tuple[str, str | None]] = []
+
+        async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
+            self.calls.append(("assess", session_ref))
+            self.last_thread_id = session_ref or "thread-customer-1"
+            return NeedAssessment(
+                primary_need="cashflow",
+                cashflow_need="high",
+                asset_defense_need="mid",
+                confidence=0.9,
+                rationale="테스트용 현금흐름 필요도",
+            )
+
+        async def generate_plan(
+            self,
+            assessment: NeedAssessment,
+            ctx: dict,
+            memory: dict,
+            session_ref: str | None = None,
+        ) -> Plan:
+            self.calls.append(("plan", session_ref))
+            self.last_thread_id = session_ref
+            return Plan(explanation="제안 없음", assessment=assessment)
+
+    reasoner = RecordingReasoner()
+    session = _new_session(db)
+    orchestrator = Orchestrator(reasoner=reasoner)
+
+    first = await orchestrator.handle_signal(db, session, "event", {"kind": "portfolio_loss"})
+    assert first.state == "Monitoring"
+    assert first.agent_thread_id == "thread-customer-1"
+
+    second = await orchestrator.handle_signal(db, first, "event", {"kind": "spending_spike"})
+    assert second.state == "Monitoring"
+    assert second.agent_thread_id == "thread-customer-1"
+    assert reasoner.calls == [
+        ("assess", None),
+        ("plan", "thread-customer-1"),
+        ("assess", "thread-customer-1"),
+        ("plan", "thread-customer-1"),
+    ]

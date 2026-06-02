@@ -6,14 +6,18 @@
 
 ## 패키지 · 임포트
 
+```bash
+bash scripts/install.sh           # glibc WSL용 우회 설치 포함
+```
+
 ```python
-pip install openai-codex          # openai-codex-cli-bin 런타임 자동 설치
 from openai_codex import AsyncCodex, Sandbox, ApprovalMode
 ```
 
 - 패키지명 `openai-codex`, 모듈 `openai_codex`. (구버전 문서의 `codex_app_server`는 **폐기**)
 - Python ≥ 3.10. FastAPI가 async이므로 **`AsyncCodex` 사용**.
-- glibc Linux(WSL/Ubuntu)에서는 `openai-codex-cli-bin`이 musl 휠이라 설치 우회가 필요 → `scripts/install.sh` 참고.
+- glibc Linux(WSL/Ubuntu)에서는 `openai-codex-cli-bin`이 musl 휠이라 일반 resolver가 실패할 수 있습니다. 따라서 SDK는 `pyproject.toml` 기본 dependency가 아니라 `scripts/install.sh`가 설치합니다.
+- 일반 개발 명령(`uv run pytest`)은 SDK 전이 의존성에 걸리지 않아야 합니다. 실제 SDK 연동 검증은 설치 스크립트 후 smoke test로 수행합니다.
 
 ## 인증 (OAuth 세션)
 
@@ -109,7 +113,7 @@ Codex SDK는 커스텀 함수 등록 API가 없고 **워크스페이스 + MCP** 
 | ② 통계 | MCP 읽기 도구 `get_population_stat` (또는 워크스페이스에 통계 스냅샷 파일) |
 | ③ 규정·약관 | `cwd` 워크스페이스의 **읽기 전용 파일** |
 
-> 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. 어댑터는 `build_context`의 모든 키 — `profile/health/insurance/loans/portfolio/asset_events/population/memory(.json)` — 를 워크스페이스에 materialize합니다(슬라이스 2 반영 완료). 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
+> 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. 어댑터는 `build_context`의 JSON-like 키 — `profile/health/insurance/accounts/transactions/card_bills/loans/loan_switch_precheck/portfolio/asset_events/population/memory(.json)` — 를 워크스페이스에 materialize합니다. 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
 
 > SDK 런타임은 MCP를 지원합니다 (`McpToolCall*` 알림, `mcp_server_config`). 동적 데이터·통계 도구는 우리 백엔드 MCP 서버로 노출하고, **읽기 전용**으로 제한합니다. 실행 도구는 MCP에도 두지 않습니다.
 
@@ -170,8 +174,16 @@ from openai_codex import AsyncCodex
 ## 스모크 테스트
 
 `scripts/codex_smoke_test.py`로 검증:
-1. import 성공
-2. `AsyncCodex` 컨텍스트 진입
-3. (OAuth 세션 존재 시) `thread_start(sandbox=read_only)` thread id 반환
-4. `thread.run("안녕")` → `final_response` 비어있지 않음
-5. `ServerBusyError` import + `retry_on_overload` 호출 가능
+1. seed/mock 데이터로 고객 컨텍스트 생성
+2. `CodexReasoner.assess_need(...)`가 `NeedAssessment`를 반환
+3. 반환된 thread id를 `generate_plan(...)`에 넘겨 같은 고객 thread를 재사용
+4. `Plan` 구조화 출력 반환
+5. `portfolio_loss` mock 신호에서 actionable need 생성
+
+실행 전 서버 터미널에서 OAuth 세션이 있어야 합니다.
+
+```bash
+timeout 120s .venv/bin/python scripts/codex_smoke_test.py
+```
+
+SDK/OAuth 진입부가 native subprocess에서 대기하면 Python 내부 timeout으로 안정적으로 끊기지 않을 수 있으므로, smoke test는 shell의 `timeout`으로 감쌉니다.

@@ -187,8 +187,10 @@ pytest app/tests/ -v
 #   test_slice2_population_stat_tool   : 통계 도구(출처 동반)
 ```
 
-## 10. Codex 연결만 따로 점검
+## 10. SDK 연결만 따로 점검
 
 ```bash
-python scripts/codex_smoke_test.py     # 연결·모델목록·구조화출력 1회 확인
+timeout 120s .venv/bin/python scripts/codex_smoke_test.py
 ```
+
+이 smoke test는 seed/mock 고객 컨텍스트로 `assess_need -> generate_plan`을 실제 SDK reasoner에 호출하고, 같은 thread id가 재사용되는지 확인한다. OAuth/session 단계가 native subprocess에서 대기할 수 있으므로 shell `timeout`으로 감싼다.
