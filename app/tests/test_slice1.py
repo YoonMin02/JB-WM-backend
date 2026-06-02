@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
@@ -52,6 +53,40 @@ def test_capability_no_execution_tools():
     names = [n for n in dir(data_tools) if not n.startswith("_")]
     for verb in ("book_", "submit_", "transfer_", "change_"):
         assert not any(n.startswith(verb) for n in names), f"실행 도구 노출됨: {verb}"
+
+
+def test_init_db_renames_active_intents_column(monkeypatch):
+    import app.core.database as database
+
+    test_engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    with test_engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE agentsession (
+                    id VARCHAR PRIMARY KEY,
+                    customer_id VARCHAR,
+                    state VARCHAR,
+                    active_intents JSON,
+                    agent_thread_id VARCHAR,
+                    pending_proposal_id VARCHAR,
+                    recent_context JSON,
+                    failure_reason VARCHAR,
+                    created_at TIMESTAMP,
+                    updated_at TIMESTAMP
+                )
+                """
+            )
+        )
+
+    monkeypatch.setattr(database, "engine", test_engine)
+    database.init_db()
+
+    columns = {col["name"] for col in inspect(test_engine).get_columns("agentsession")}
+    assert "active_needs" in columns
+    assert "active_intents" not in columns
 
 
 @pytest.mark.asyncio
