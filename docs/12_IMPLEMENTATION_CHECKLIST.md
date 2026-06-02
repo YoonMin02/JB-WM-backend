@@ -81,9 +81,9 @@
 
 ## Frontend Dependencies
 
-- [ ] `JB-WM-frontend/README.md`의 기술 스택을 실제 `package.json`과 동기화한다.
-- [ ] React Router, Zustand, shadcn/ui, Recharts를 실제로 도입할지 결정한다.
-- [ ] 아직 도입하지 않은 항목은 "planned"로 표시한다.
+- [x] `JB-WM-frontend/README.md`의 기술 스택을 실제 `package.json`과 동기화한다.
+- [x] React Router, Zustand, shadcn/ui, Recharts를 현재는 도입하지 않는 것으로 정리한다.
+- [x] 아직 도입하지 않은 항목은 "planned"로 표시한다.
 
 ## Security / Privacy
 
