@@ -125,4 +125,6 @@ POST /customers/{id}/privacy/consents/{consent_id}/revoke
 
 ## 인증
 
-MVP는 단순 세션/JWT. 역할: 고객 / 어드바이저 / 운영자 ([10](10_SECURITY_PRIVACY.md)). 모든 고객 데이터 접근은 인증 주체로 스코핑.
+JWT Bearer 토큰을 사용합니다. 역할: `customer` / `advisor` / `operator` ([10](10_SECURITY_PRIVACY.md)).
+고객 역할은 자기 `customer_id`만 접근할 수 있고, advisor/operator는 담당/운영 범위 접근을 전제로 합니다.
+`local`/`dev` 환경에서 Authorization 헤더가 없으면 개발 편의를 위해 `operator` principal을 사용합니다.

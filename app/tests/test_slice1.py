@@ -7,6 +7,7 @@ import types
 from datetime import timedelta
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, Session, create_engine, select
 from sqlmodel.pool import StaticPool
@@ -58,6 +59,28 @@ def test_capability_no_execution_tools():
     names = [n for n in dir(data_tools) if not n.startswith("_")]
     for verb in ("book_", "submit_", "transfer_", "change_"):
         assert not any(n.startswith(verb) for n in names), f"실행 도구 노출됨: {verb}"
+
+
+def test_jwt_and_customer_scope_guard(db: Session):
+    from app.api.routes.customers import customer_portfolio
+    from app.core.auth import Principal, create_jwt, require_customer_access, verify_jwt
+
+    customer_id = _customer_id(db)
+    token = create_jwt(subject="user-1", role="customer", customer_id=customer_id)
+    principal = verify_jwt(token)
+
+    assert principal.role == "customer"
+    assert principal.customer_id == customer_id
+    require_customer_access(principal, customer_id)
+    with pytest.raises(HTTPException) as exc:
+        require_customer_access(Principal(subject="user-2", role="customer", customer_id="other"), customer_id)
+    assert exc.value.status_code == 403
+
+    portfolio = customer_portfolio(customer_id, db, principal)
+    assert portfolio["total_value"] == 100_000_000
+    with pytest.raises(HTTPException) as route_exc:
+        customer_portfolio(customer_id, db, Principal(subject="user-2", role="customer", customer_id="other"))
+    assert route_exc.value.status_code == 403
 
 
 def test_mcp_read_tools_are_scoped_and_audited(db: Session):

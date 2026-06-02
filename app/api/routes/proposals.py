@@ -6,16 +6,30 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.agent.orchestrator import Orchestrator
-from app.api.deps import db_session
+from app.api.deps import current_principal, db_session
 from app.api.errors import reasoner_http_exception
 from app.api.routes.sessions import serialize_session
+from app.core.auth import Principal, require_customer_access
 from app.models.agent import ActionProposal, AgentSession
 
 router = APIRouter(tags=["proposals"])
 
 
+def _authorize(principal: Principal, customer_id: str) -> None:
+    if isinstance(principal, Principal):
+        require_customer_access(principal, customer_id)
+
+
 @router.get("/agent-sessions/{session_id}/proposals")
-def list_proposals(session_id: str, db: Session = Depends(db_session)) -> dict:
+def list_proposals(
+    session_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    session = db.get(AgentSession, session_id)
+    if not session:
+        raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    _authorize(principal, session.customer_id)
     rows = db.exec(select(ActionProposal).where(ActionProposal.session_id == session_id)).all()
     return {
         "proposals": [
@@ -35,13 +49,21 @@ class ReviseIn(BaseModel):
     note: str = ""
 
 
-async def _decide(db: Session, proposal_id: str, decision: str, note: str = "") -> dict:
+async def _decide(
+    db: Session,
+    proposal_id: str,
+    decision: str,
+    note: str = "",
+    principal: Principal | None = None,
+) -> dict:
     p = db.get(ActionProposal, proposal_id)
     if not p:
         raise HTTPException(404, "제안을 찾을 수 없습니다.")
     s = db.get(AgentSession, p.session_id)
     if not s:
         raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    if principal is not None:
+        _authorize(principal, s.customer_id)
     if s.pending_proposal_id != proposal_id:
         raise HTTPException(409, "이 제안은 현재 승인 대기 중이 아닙니다.")
     from app.models.agent import ApprovalDecision
@@ -60,15 +82,28 @@ async def _decide(db: Session, proposal_id: str, decision: str, note: str = "") 
 
 
 @router.post("/proposals/{proposal_id}/approve")
-async def approve(proposal_id: str, db: Session = Depends(db_session)) -> dict:
-    return await _decide(db, proposal_id, "approve")
+async def approve(
+    proposal_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    return await _decide(db, proposal_id, "approve", principal=principal)
 
 
 @router.post("/proposals/{proposal_id}/reject")
-async def reject(proposal_id: str, db: Session = Depends(db_session)) -> dict:
-    return await _decide(db, proposal_id, "reject")
+async def reject(
+    proposal_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    return await _decide(db, proposal_id, "reject", principal=principal)
 
 
 @router.post("/proposals/{proposal_id}/revise")
-async def revise(proposal_id: str, body: ReviseIn, db: Session = Depends(db_session)) -> dict:
-    return await _decide(db, proposal_id, "revise", body.note)
+async def revise(
+    proposal_id: str,
+    body: ReviseIn,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    return await _decide(db, proposal_id, "revise", body.note, principal=principal)

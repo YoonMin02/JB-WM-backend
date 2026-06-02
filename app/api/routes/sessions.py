@@ -6,8 +6,9 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.agent.orchestrator import Orchestrator
-from app.api.deps import db_session
+from app.api.deps import current_principal, db_session
 from app.api.errors import reasoner_http_exception
+from app.core.auth import Principal, require_customer_access
 from app.models.agent import (
     ActionProposal,
     AgentEvent,
@@ -20,6 +21,11 @@ from app.models.customer import Customer
 from app.state_machine.states import State, allowed_actions
 
 router = APIRouter(tags=["agent-sessions"])
+
+
+def _authorize(principal: Principal, customer_id: str) -> None:
+    if isinstance(principal, Principal):
+        require_customer_access(principal, customer_id)
 
 
 def serialize_session(db: Session, s: AgentSession) -> dict:
@@ -52,9 +58,14 @@ class SignalIn(BaseModel):
 
 
 @router.post("/customers/{customer_id}/agent-sessions", status_code=201)
-def create_session(customer_id: str, db: Session = Depends(db_session)) -> dict:
+def create_session(
+    customer_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
     if not db.get(Customer, customer_id):
         raise HTTPException(404, "고객을 찾을 수 없습니다.")
+    _authorize(principal, customer_id)
     existing = db.exec(
         select(AgentSession)
         .where(AgentSession.customer_id == customer_id)
@@ -70,15 +81,28 @@ def create_session(customer_id: str, db: Session = Depends(db_session)) -> dict:
 
 
 @router.get("/agent-sessions/{session_id}")
-def get_session_state(session_id: str, db: Session = Depends(db_session)) -> dict:
+def get_session_state(
+    session_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
     s = db.get(AgentSession, session_id)
     if not s:
         raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    _authorize(principal, s.customer_id)
     return serialize_session(db, s)
 
 
 @router.get("/agent-sessions/{session_id}/events")
-def get_events(session_id: str, db: Session = Depends(db_session)) -> dict:
+def get_events(
+    session_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    s = db.get(AgentSession, session_id)
+    if not s:
+        raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    _authorize(principal, s.customer_id)
     rows = db.exec(
         select(AgentEvent).where(AgentEvent.session_id == session_id).order_by(AgentEvent.created_at)
     ).all()
@@ -86,9 +110,15 @@ def get_events(session_id: str, db: Session = Depends(db_session)) -> dict:
 
 
 @router.get("/agent-sessions/{session_id}/records")
-def get_records(session_id: str, db: Session = Depends(db_session)) -> dict:
-    if not db.get(AgentSession, session_id):
+def get_records(
+    session_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    s = db.get(AgentSession, session_id)
+    if not s:
         raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    _authorize(principal, s.customer_id)
     messages = db.exec(
         select(AgentMessage)
         .where(AgentMessage.session_id == session_id)
@@ -136,12 +166,18 @@ def get_records(session_id: str, db: Session = Depends(db_session)) -> dict:
 
 
 @router.post("/agent-sessions/{session_id}/signals", status_code=202)
-async def post_signal(session_id: str, body: SignalIn, db: Session = Depends(db_session)) -> dict:
+async def post_signal(
+    session_id: str,
+    body: SignalIn,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
     from app.agent.codex_adapter import CodexRateLimited, CodexReasoningError
 
     s = db.get(AgentSession, session_id)
     if not s:
         raise HTTPException(404, "세션을 찾을 수 없습니다.")
+    _authorize(principal, s.customer_id)
     if s.state != State.MONITORING:
         raise HTTPException(409, f"신호는 Monitoring 상태에서만 받습니다 (현재: {s.state}).")
     try:

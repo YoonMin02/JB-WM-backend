@@ -116,6 +116,13 @@ flowchart LR
 
 MVP: 세션 또는 JWT. 시크릿은 환경변수 ([ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)), 소스/문서에 하드코딩 금지.
 
+현재 구현:
+- `app/core/auth.py`가 HS256 JWT 생성/검증과 `Principal(role, customer_id)`를 제공한다.
+- `current_principal` dependency가 Bearer token을 검증한다.
+- 고객 데이터/세션/제안/동의 철회 라우트는 `require_customer_access()`로 customer scope를 검사한다.
+- `local`/`dev` 환경에서는 README 실행 편의를 위해 Authorization 헤더가 없으면 개발용 `operator`
+  principal을 사용한다. staging/prod에서는 토큰이 없으면 401.
+
 ## 5. 설명가능성 & 감사 (평가 5.5)
 
 전 구간을 추적합니다:
