@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 
 import pytest
 from sqlalchemy import inspect, text
@@ -55,6 +57,28 @@ def test_capability_no_execution_tools():
     names = [n for n in dir(data_tools) if not n.startswith("_")]
     for verb in ("book_", "submit_", "transfer_", "change_"):
         assert not any(n.startswith(verb) for n in names), f"실행 도구 노출됨: {verb}"
+
+
+def test_health_data_requires_consent(db: Session):
+    from app.models.health import HealthRecord
+    from app.tools.data_tools import get_health_data
+
+    customer_id = _customer_id(db)
+    db.add(
+        HealthRecord(
+            customer_id=customer_id,
+            source="self_reported",
+            metric="sensitive_note",
+            value={"note": "동의 없는 건강 정보"},
+            consent_id=None,
+        )
+    )
+    db.commit()
+
+    health = get_health_data(db, customer_id)
+    metrics = {record["metric"] for record in health["records"]}
+    assert "blood_pressure" in metrics
+    assert "sensitive_note" not in metrics
 
 
 def test_init_db_renames_active_intents_column(monkeypatch):
@@ -309,6 +333,69 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
 
     accounts = json.loads((workspace / "accounts.json").read_text(encoding="utf-8"))
     assert accounts["liquidity_summary"]["available_cash_krw"] > 0
+
+
+@pytest.mark.asyncio
+async def test_codex_adapter_starts_thread_read_only(monkeypatch, tmp_path):
+    from app.agent.codex_adapter import CodexReasoner
+    from app.agent.schemas import NeedAssessment
+    from app.core.config import settings
+
+    captured: dict[str, object] = {}
+
+    class FakeSandbox:
+        read_only = "read_only"
+
+    class FakeThread:
+        id = "thread-readonly"
+
+        async def run(self, prompt: str, output_schema: dict):
+            return types.SimpleNamespace(
+                status="completed",
+                error=None,
+                final_response=json.dumps(
+                    {
+                        "medical_cost_need": "none",
+                        "insurance_need": "none",
+                        "cashflow_need": "high",
+                        "asset_defense_need": "mid",
+                        "investment_adjust_need": "low",
+                        "life_plan_need": "none",
+                        "primary_need": "cashflow",
+                        "confidence": 0.8,
+                        "rationale": "fake",
+                        "preference_update_only": False,
+                        "no_action": False,
+                        "clarifying_question": None,
+                    }
+                ),
+            )
+
+    class FakeCodex:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def thread_start(self, **kwargs):
+            captured.update(kwargs)
+            return FakeThread()
+
+    fake_module = types.SimpleNamespace(AsyncCodex=FakeCodex, Sandbox=FakeSandbox)
+    monkeypatch.setitem(sys.modules, "openai_codex", fake_module)
+    monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
+
+    reasoner = CodexReasoner()
+    result = await reasoner._run(
+        "fake prompt",
+        {"customer_id": "customer-1", "profile": {"name": "김영자"}},
+        NeedAssessment,
+    )
+
+    assert result.primary_need == "cashflow"
+    assert captured["sandbox"] == FakeSandbox.read_only
+    assert "JB-WM-backend/app" not in str(captured["cwd"])
 
 
 @pytest.mark.asyncio
