@@ -42,7 +42,17 @@ GET  /agent-sessions/{session_id}
 200  {
        "session_id", "customer_id",
        "state": "UserApproval",
-       "active_intents": { "Insurance": "ACTIVE", "Investment": "DEFERRED" },
+       "active_needs": {
+         "primary_need": "cashflow",
+         "needs": {
+           "medical_cost_need": "mid",
+           "insurance_need": "low",
+           "cashflow_need": "high",
+           "asset_defense_need": "high",
+           "investment_adjust_need": "low",
+           "life_plan_need": "none"
+         }
+       },
        "allowed_actions": ["approve", "reject", "revise"],
        "pending_proposal": { "id", "kind", "summary", "has_external_effect" },
        "failure": null

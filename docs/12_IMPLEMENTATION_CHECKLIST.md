@@ -10,18 +10,18 @@
   - `resume_session(thread_id)`
   - `assess_need(...)`
   - `generate_plan(...)`
-- [ ] `AgentSession.agent_thread_id`에 Codex thread id를 저장한다.
-- [ ] 기본은 고객 1명당 active holistic `AgentSession` 1개로 제한한다.
-- [ ] `POST /customers/{customer_id}/agent-sessions` 시 기존 active session을 재사용하거나, 없을 때 Codex thread를 시작하고 즉시 영속화한다.
-- [ ] 이후 signal, clarify answer, revise 요청은 새 thread가 아니라 기존 thread를 `thread_resume()`으로 이어간다.
+- [x] `AgentSession.agent_thread_id`에 Codex thread id를 저장한다.
+- [x] 기본은 고객 1명당 active holistic `AgentSession` 1개로 제한한다.
+- [x] `POST /customers/{customer_id}/agent-sessions` 시 기존 active session을 재사용한다.
+- [x] 이후 signal, revise 요청은 새 thread가 아니라 기존 thread를 `thread_resume()`으로 이어간다.
 - [ ] Codex thread 하나가 고객별 holistic agent session 하나에 대응하도록 보장한다.
-- [ ] intent 상태는 전문 agent 분기가 아니라 하나의 통합 agent 안의 주된 니즈 라벨임을 코드/문서/프롬프트에 반영한다.
-- [ ] thread 시작 시 `cwd`는 백엔드 소스가 아니라 안전한 agent workspace만 가리키게 한다.
+- [x] intent 상태는 전문 agent 분기가 아니라 하나의 통합 agent 안의 주된 니즈 라벨임을 코드/문서/프롬프트에 반영한다.
+- [x] thread 시작 시 `cwd`는 백엔드 소스가 아니라 안전한 agent workspace만 가리키게 한다.
 - [ ] Codex compact/요약이 발생해도 감사와 재현을 위해 원본 대화/이벤트는 DB에 별도 저장한다.
 
 ## Conversation / Transcript Persistence
 
-- [ ] 고객 발화, 시스템 신호, Codex 최종 응답/요약, 생성된 intent/plan을 append-only로 저장할 테이블을 추가한다.
+- [ ] 고객 발화, 시스템 신호, Codex 최종 응답/요약, 생성된 need assessment/plan을 append-only로 저장할 테이블을 추가한다.
 - [ ] 가능한 모델 예시:
   - `AgentMessage`: `session_id`, `role`, `content`, `metadata`, `created_at`
   - `NeedAssessmentRecord`: `session_id`, `needs`, `primary_need`, `confidence`, `rationale`, `raw_output`, `created_at`

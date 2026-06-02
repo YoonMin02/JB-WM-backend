@@ -165,7 +165,7 @@ GUI로 보고 싶으면 DBeaver/TablePlus/pgAdmin에 `postgresql://jbwm:jbwm@loc
 ## 8. 로깅 — 무슨 일이 일어나는지 실시간으로
 
 - **서버 stdout**: 상태 전이(`session X: A -> B`), Codex 호출 수(`codex 호출 #N`), Executor 실행. `LOG_LEVEL=info`(.env).
-- **DB `agentevent`**: 모든 단계 영속 (state_transition / tool_call / intent / plan / execution / memory).
+- **DB `agentevent`**: 모든 단계 영속 (state_transition / tool_call / need_assessment / plan / execution / memory).
 - **API `GET /agent-sessions/{id}/events`**: 그 세션의 타임라인 (프론트 Timeline 화면이 이걸 그림).
 
 서버 로그를 따로 보고 싶으면:

@@ -65,7 +65,7 @@ flowchart TB
 
 ### 개인화 동작
 
-장기 메모리는 **`GeneratePlan`의 입력**입니다 ([04](04_AGENT_RUNTIME.md) `generate_plan(intent, memory)`). 같은 신호라도 고객마다 다른 계획이 나옵니다.
+장기 메모리는 **`GeneratePlan`의 입력**입니다 ([04](04_AGENT_RUNTIME.md) `generate_plan(assessment, memory)`). 같은 신호라도 고객마다 다른 계획이 나옵니다.
 
 예: 자산 손실 + 의료비 대비 필요 신호 →
 - `medical_willingness: conservative` + `constraints.투자=보류` 고객 → 기본 검사/상담 비용 범위 중심, 보험·비상자금 우선, 투자 조정·고비용 대비는 soft CTA로만 제안

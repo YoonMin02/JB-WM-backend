@@ -64,8 +64,8 @@ async def test_insurance_approval_flow(db: Session):
     r = await Orchestrator().handle_signal(db, s, "event", {"kind": "bp_rising"})
     assert r.state == "UserApproval"
     assert r.pending_proposal_id is not None
-    assert r.active_intents["primary_need"] == "insurance"
-    assert r.active_intents["needs"]["insurance_need"] == "high"
+    assert r.active_needs["primary_need"] == "insurance"
+    assert r.active_needs["needs"]["insurance_need"] == "high"
 
     proposals = db.exec(select(ActionProposal).where(ActionProposal.session_id == r.id)).all()
     assert any(p.kind == "report" and p.status == "executed" for p in proposals)
@@ -112,9 +112,9 @@ async def test_asset_trigger_resilience(db: Session):
 
     r = await Orchestrator().handle_signal(db, s, "event", {"kind": "portfolio_loss"})
     assert r.state == "UserApproval"
-    assert r.active_intents["primary_need"] == "cashflow"
-    assert r.active_intents["needs"]["cashflow_need"] == "high"
-    assert r.active_intents["needs"]["asset_defense_need"] == "high"
+    assert r.active_needs["primary_need"] == "cashflow"
+    assert r.active_needs["needs"]["cashflow_need"] == "high"
+    assert r.active_needs["needs"]["asset_defense_need"] == "high"
 
     proposals = db.exec(select(ActionProposal).where(ActionProposal.session_id == r.id)).all()
     kinds = {p.kind: p for p in proposals}
@@ -152,6 +152,8 @@ def test_customer_agent_session_is_reused(db: Session):
     second = create_session(customer_id, db)
     assert first["session_id"] == second["session_id"]
     assert first["customer_id"] == customer_id
+    assert "active_needs" in first
+    assert "active_intents" not in first
 
 
 def test_api_shaped_mock_data_has_100_plus_records(db: Session):

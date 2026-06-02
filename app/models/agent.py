@@ -14,7 +14,7 @@ class AgentSession(SQLModel, table=True):
     id: str = Field(default_factory=new_uuid, primary_key=True)
     customer_id: str = Field(foreign_key="customer.id", index=True)
     state: str = "Monitoring"  # 03_STATE_MACHINE 상태값
-    active_intents: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    active_needs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     agent_thread_id: str | None = None  # 추론 세션 참조 (어댑터 해석)
     pending_proposal_id: str | None = None
     recent_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -68,6 +68,6 @@ class AgentEvent(SQLModel, table=True):
 
     id: str = Field(default_factory=new_uuid, primary_key=True)
     session_id: str = Field(foreign_key="agentsession.id", index=True)
-    type: str  # state_transition / tool_call / intent / plan / approval / execution
+    type: str  # state_transition / tool_call / need_assessment / plan / approval / execution
     detail: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utcnow)

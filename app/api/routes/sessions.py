@@ -30,7 +30,7 @@ def serialize_session(db: Session, s: AgentSession) -> dict:
         "session_id": s.id,
         "customer_id": s.customer_id,
         "state": s.state,
-        "active_intents": s.active_intents,
+        "active_needs": s.active_needs,
         "allowed_actions": allowed_actions(State(s.state)),
         "pending_proposal": pending,
         "recent_context": s.recent_context,

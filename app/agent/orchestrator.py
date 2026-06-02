@@ -52,7 +52,7 @@ class Orchestrator:
             db.refresh(session)
             return session
 
-        session.active_intents = {"primary_need": assessment.primary_need, "needs": self._need_levels(assessment)}
+        session.active_needs = {"primary_need": assessment.primary_need, "needs": self._need_levels(assessment)}
         session.recent_context = {"assessment": assessment.model_dump()}
         db.add(session)
         db.commit()
@@ -166,7 +166,7 @@ class Orchestrator:
         transition(db, session, State.UPDATE_MEMORY)
         self._touch_memory(db, session)
         transition(db, session, State.MONITORING)
-        session.active_intents = {}
+        session.active_needs = {}
         db.add(session)
         db.commit()
         db.refresh(session)
@@ -196,9 +196,9 @@ class Orchestrator:
         raw = session.recent_context.get("assessment") if session.recent_context else None
         if isinstance(raw, dict):
             return NeedAssessment.model_validate(raw)
-        needs = session.active_intents.get("needs", {}) if session.active_intents else {}
+        needs = session.active_needs.get("needs", {}) if session.active_needs else {}
         return NeedAssessment(
-            primary_need=session.active_intents.get("primary_need", "none") if session.active_intents else "none",
+            primary_need=session.active_needs.get("primary_need", "none") if session.active_needs else "none",
             **{k: v for k, v in needs.items() if k.endswith("_need")},
         )
 

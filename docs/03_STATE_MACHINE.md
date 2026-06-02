@@ -172,7 +172,7 @@ LLM은 `RiskCheck`, `NeedApproval`, `UserApproval`, `ExecuteAction`, `VerifyResu
 
 실제로는 여러 필요도가 동시에 높을 수 있습니다. 이는 여러 전문 agent를 둔다는 뜻이 아니라,
 하나의 통합 agent 안에서 여러 니즈의 처리 상태를 동시에 추적한다는 뜻입니다. MVP는
-`NeedAssessment`의 필요도 값과 `active_intents` JSON으로 시작하고, 필요 시 필요도별
+`NeedAssessment`의 필요도 값과 `active_needs` JSON으로 시작하고, 필요 시 필요도별
 서브상태(`ACTIVE` / `DEFERRED` / `PENDING` / `APPROVED`)로 확장합니다.
 
 ```
@@ -184,11 +184,11 @@ investment_adjust_need = DEFERRED
 
 ## 영속화 필드 (세션)
 
-`AgentSession` 핵심 필드: `id`, `customer_id`, `state`, `active_intents`,
+`AgentSession` 핵심 필드: `id`, `customer_id`, `state`, `active_needs`,
 `agent_thread_id`, `pending_proposal_id`, `recent_context`, `created_at`, `updated_at`.
 
-`active_intents`는 이름은 유지하되, 현재는 `primary_need`와 각 need level을 담는 JSON으로 사용합니다.
-추후 모델명을 `active_needs`로 바꿀 수 있습니다.
+`active_needs`는 `primary_need`와 각 need level을 담는 JSON입니다. FSM 상태가 아니라
+`AssessNeed` 결과의 세션 스냅샷입니다.
 
 ## 프론트엔드 계약
 

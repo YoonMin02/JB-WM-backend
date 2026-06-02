@@ -136,7 +136,7 @@ erDiagram
 | id | uuid | PK |
 | customer_id | uuid | FK |
 | state | str | 현재 FSM 상태 ([03](03_STATE_MACHINE.md)) |
-| active_intents | json | 의도별 서브상태 |
+| active_needs | json | `primary_need`와 필요도별 level |
 | agent_thread_id | str | 추론 세션 참조 (어댑터 해석) |
 | pending_proposal_id | uuid | 승인 대기 중 ActionProposal |
 | recent_context | json | 최근 대화/진행상황 (단기) |
