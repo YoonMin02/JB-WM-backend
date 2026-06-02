@@ -22,6 +22,11 @@
 | `JWT_SECRET` | Depends | JWT 사용 시 필수 |
 | `SESSION_SECRET` | Depends | 세션 인증 사용 시 |
 
+## Privacy
+| 변수 | 필수 | 기본 | 설명 |
+|---|---|---|---|
+| `PRIVACY_SENSITIVE_RETENTION_DAYS` | No | `365` | 민감 transcript 보유일수. 초과 `AgentMessage`는 purge 대상 |
+
 ## Codex / 추론
 | 변수 | 필수 | 기본 | 설명 |
 |---|---|---|---|
@@ -64,6 +69,7 @@ LOG_LEVEL=info
 
 DATABASE_URL=postgresql://jbwm:jbwm@localhost:5432/jbwm_dev
 JWT_SECRET=change-me
+PRIVACY_SENSITIVE_RETENTION_DAYS=365
 
 # 추론: stub(기본, 무료·결정론적) / codex(실제 LLM)
 REASONER=stub

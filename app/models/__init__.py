@@ -24,6 +24,7 @@ from app.models.finance import (
 from app.models.health import HealthEvent, HealthRecord, MedicalDocument
 from app.models.insurance import CoverageItem, InsurancePolicy
 from app.models.memory import CustomerMemory
+from app.models.privacy import ConsentRecord
 from app.models.stats import PopulationStat
 
 __all__ = [
@@ -42,6 +43,7 @@ __all__ = [
     "LoanSwitchPrecheck",
     "AssetEvent",
     "CustomerMemory",
+    "ConsentRecord",
     "PopulationStat",
     "AgentSession",
     "Signal",

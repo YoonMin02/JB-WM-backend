@@ -93,7 +93,12 @@ flowchart LR
 - 보유기간 만료 또는 **동의 철회 시 파기**(개인정보보호법, 잊힐 권리).
 - 건강·의료는 민감정보라 보유·접근을 더 엄격히 제한한다.
 - 감사 이력(append-only)도 법정 보유기간을 넘기면 익명화/파기 대상.
-- MVP는 저장만 구현하되 이 원칙을 문서·설계에 반영한다 (평가 2.4).
+- 현재 구현:
+  - `ConsentRecord`가 동의 상태를 추적한다.
+  - `POST /customers/{id}/privacy/consents/{consent_id}/revoke`가 동의를 철회하고, 해당
+    `consent_id`에 연결된 `HealthRecord`와 `MedicalDocument`를 삭제한다.
+  - `purge_expired_sensitive_messages()`가 `PRIVACY_SENSITIVE_RETENTION_DAYS` 기준을 넘긴
+    `AgentMessage` 전문을 삭제한다.
 
 ## 3. 데이터 격리
 

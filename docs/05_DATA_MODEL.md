@@ -12,6 +12,7 @@ erDiagram
     Customer ||--o{ HealthRecord : has
     Customer ||--o{ HealthEvent : has
     Customer ||--o{ MedicalDocument : submits
+    Customer ||--o{ ConsentRecord : grants
     Customer ||--o{ AssetEvent : has
     Customer ||--|| CustomerMemory : has
     Customer ||--o{ AgentSession : has
@@ -72,6 +73,18 @@ erDiagram
 | consent_id | uuid | 동의 근거 |
 
 > 주관(인지·성격·지불의향)은 `CustomerMemory`에, **객관 의료 사실은 `MedicalDocument`/`HealthRecord`에** 분리 저장. 질병 평가는 객관 데이터 + 통계, 대응 개인화는 주관.
+
+### ConsentRecord
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | str | consent id. `HealthRecord.consent_id`, `MedicalDocument.consent_id`와 연결 |
+| customer_id | uuid | FK |
+| scope | str | 예: `health` |
+| status | str | `active` / `revoked` |
+| granted_at, revoked_at | datetime | 동의/철회 시각 |
+
+동의 철회 시 `revoke_consent()`가 해당 consent에 연결된 `HealthRecord`와 `MedicalDocument`를 삭제하고
+`ConsentRecord.status="revoked"`로 표시합니다.
 
 ### PortfolioAccount / Holding
 | Holding 필드 | 타입 | 설명 |

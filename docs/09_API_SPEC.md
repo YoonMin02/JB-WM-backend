@@ -107,6 +107,8 @@ GET /customers/{id}/transactions     → 계좌 거래/지출 요약
 GET /customers/{id}/card-bills       → 카드 청구 요약
 GET /customers/{id}/loan-switch-precheck → 대출이동 사전조회 mock
 GET /customers/{id}/memory           → 장기 메모리 (성향·선호)
+POST /customers/{id}/privacy/consents/{consent_id}/revoke
+                                      → 동의 철회 + 연결 건강/의료 문서 파기
 ```
 
 > 이 엔드포인트들은 프론트 표시용입니다. **에이전트는 이 REST가 아니라 MCP 읽기 도구로** 같은 데이터에 접근합니다 ([06](06_TOOL_CONTRACTS.md)).

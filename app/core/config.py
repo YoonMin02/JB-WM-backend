@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # Auth
     jwt_secret: str = "change-me"
+    privacy_sensitive_retention_days: int = 365
 
     # Codex / 추론
     # 'stub' = 결정론적 가짜(테스트/데모), 'codex' = 실제 Codex SDK

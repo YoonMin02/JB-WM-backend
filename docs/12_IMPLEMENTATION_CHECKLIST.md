@@ -27,7 +27,7 @@
   - `NeedAssessmentRecord`: `session_id`, `needs`, `primary_need`, `confidence`, `rationale`, `raw_output`, `created_at`
   - `PlanRecord`: `session_id`, `explanation`, `raw_output`, `created_at`
 - [x] `AgentEvent`는 타임라인/감사용 이벤트로 유지하고, 전문 대화 저장과 역할을 분리한다.
-- [ ] 개인정보/민감정보 보유기간과 동의 철회 시 파기 정책을 반영한다.
+- [x] 개인정보/민감정보 보유기간과 동의 철회 시 파기 정책을 반영한다.
 
 ## MCP Read Tools
 

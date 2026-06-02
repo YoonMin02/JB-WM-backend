@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import sys
 import types
+from datetime import timedelta
 
 import pytest
 from sqlalchemy import inspect, text
@@ -110,6 +111,68 @@ def test_health_data_requires_consent(db: Session):
     metrics = {record["metric"] for record in health["records"]}
     assert "blood_pressure" in metrics
     assert "sensitive_note" not in metrics
+
+
+def test_revoke_consent_deletes_sensitive_health_data(db: Session):
+    from app.models.health import HealthRecord, MedicalDocument
+    from app.models.privacy import ConsentRecord
+    from app.privacy.service import revoke_consent
+    from app.tools.data_tools import get_health_data
+
+    customer_id = _customer_id(db)
+    before_records = db.exec(
+        select(HealthRecord).where(HealthRecord.customer_id == customer_id, HealthRecord.consent_id == "consent-1")
+    ).all()
+    before_docs = db.exec(
+        select(MedicalDocument).where(
+            MedicalDocument.customer_id == customer_id,
+            MedicalDocument.consent_id == "consent-1",
+        )
+    ).all()
+    assert before_records
+    assert before_docs
+
+    result = revoke_consent(db, customer_id=customer_id, consent_id="consent-1")
+
+    assert result["status"] == "revoked"
+    assert result["deleted"]["health_records"] == len(before_records)
+    assert result["deleted"]["medical_documents"] == len(before_docs)
+    assert get_health_data(db, customer_id)["records"] == []
+    consent = db.get(ConsentRecord, "consent-1")
+    assert consent is not None
+    assert consent.status == "revoked"
+    assert consent.revoked_at is not None
+
+
+def test_retention_purge_deletes_expired_sensitive_messages(db: Session):
+    from app.models.agent import AgentMessage
+    from app.models.base import utcnow
+    from app.privacy.service import purge_expired_sensitive_messages
+
+    session = _new_session(db)
+    old_message = AgentMessage(
+        session_id=session.id,
+        role="user",
+        content="old sensitive transcript",
+        created_at=utcnow() - timedelta(days=400),
+    )
+    fresh_message = AgentMessage(
+        session_id=session.id,
+        role="user",
+        content="fresh transcript",
+        created_at=utcnow(),
+    )
+    db.add(old_message)
+    db.add(fresh_message)
+    db.commit()
+    db.refresh(old_message)
+    db.refresh(fresh_message)
+
+    result = purge_expired_sensitive_messages(db, retention_days=365)
+
+    assert result["deleted"]["agent_messages"] == 1
+    assert db.get(AgentMessage, old_message.id) is None
+    assert db.get(AgentMessage, fresh_message.id) is not None
 
 
 def test_init_db_renames_active_intents_column(monkeypatch):
