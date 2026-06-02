@@ -101,21 +101,16 @@ def _strict_schema(model: type) -> dict:
     return _make_strict(model.model_json_schema())
 
 SYSTEM_INSTRUCTIONS = (
-    "당신은 JB WM의 분석 보조 에이전트입니다. 워크스페이스의 고객 데이터 파일"
-    "(profile/health/insurance/accounts/transactions/card_bills/loans/portfolio/"
-    "asset_events/population/memory.json)과 규정 파일을 읽고 분석합니다. "
-    "동적 고객 데이터가 필요하면 등록된 MCP 읽기 도구만 사용합니다. "
+    "당신은 JB WM의 분석 보조 에이전트입니다. 동적 고객 데이터가 필요하면 "
+    "등록된 MCP 읽기 도구만 사용합니다. 워크스페이스에는 정적 규정 파일과 "
+    "최소 manifest만 있으며, 설정에 따라 제한된 JSON 스냅샷이 있을 수 있습니다. "
     "당신은 읽기·분석·제안만 합니다. 어떤 실제 행동(예약·청구·송금)도 실행하지 않으며, "
     "그럴 권한도 없습니다. 항상 요청된 JSON 스키마에 맞는 결과만 반환하세요."
 )
 
 
 def _write_workspace(ctx: dict) -> Path:
-    """현재 고객 컨텍스트를 read-only 워크스페이스 파일로 기록.
-
-    build_context의 모든 JSON-like 키를 각각 `<key>.json` 파일로 materialize한다.
-    customer_id 같은 스칼라는 제외.
-    """
+    """Prepare a read-only workspace with static context and optional snapshots."""
     base = settings.codex_working_directory or None
     if base:
         Path(base).mkdir(parents=True, exist_ok=True)
@@ -125,12 +120,22 @@ def _write_workspace(ctx: dict) -> Path:
         root.mkdir(parents=True, exist_ok=True)
     else:
         root = Path(tempfile.mkdtemp(prefix="jbwm_ws_", dir=base))
-    for name, payload in ctx.items():
-        if not isinstance(payload, (dict, list)):
-            continue
-        (root / f"{name}.json").write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+    manifest = {
+        "customer_scope": str(ctx.get("customer_id") or ""),
+        "dynamic_data": "mcp_read_tools",
+        "snapshots_included": settings.codex_workspace_include_snapshots,
+        "static_context": "static_context/",
+    }
+    (root / "context_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    if settings.codex_workspace_include_snapshots:
+        for name, payload in ctx.items():
+            if not isinstance(payload, (dict, list)):
+                continue
+            (root / f"{name}.json").write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
     _copy_static_context(root)
     logger.info("codex workspace prepared path=%s files=%s", root, sorted(p.name for p in root.glob("*.json")))
     return root

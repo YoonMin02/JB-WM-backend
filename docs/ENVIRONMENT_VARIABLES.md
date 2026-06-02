@@ -31,6 +31,7 @@
 | `CODEX_MAX_CALLS_TOTAL` | No | `500` | 프로세스 총 Codex 호출 한도. `0`=무제한 |
 | `OPENAI_API_KEY` | No | — | **선택**. `codex login` OAuth 세션이 있으면 불필요. CLI 세션 없는 환경(CI 등)에서만 `login_api_key`용 |
 | `CODEX_WORKING_DIRECTORY` | No | `./workspace` | 에이전트 워크스페이스 루트 (세션별 하위 디렉토리 생성) |
+| `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS` | No | `false` | 고객 JSON 스냅샷을 workspace에 쓸지 여부. 기본은 MCP read tools만 사용해 민감 데이터 파일화를 최소화 |
 
 > 기본 경로는 **OAuth 세션 재사용**입니다 ([CODEX_ADAPTER.md](CODEX_ADAPTER.md) 인증). `OPENAI_API_KEY`는 대체 수단일 뿐 필수가 아닙니다.
 > 호출 한도는 `app/agent/codex_adapter.py`의 rate guard가 강제합니다.
@@ -72,6 +73,7 @@ CODEX_MAX_CALLS_TOTAL=500
 # Codex: codex login OAuth 세션 사용 시 불필요
 # OPENAI_API_KEY=sk-...
 CODEX_WORKING_DIRECTORY=./workspace
+CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=false
 
 FILE_STORAGE_DRIVER=local
 LOCAL_STORAGE_PATH=./storage

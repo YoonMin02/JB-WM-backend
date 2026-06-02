@@ -105,7 +105,10 @@ Sandbox.workspace_write  # 사용 안 함
 Sandbox.full_access      # 사용 안 함
 ```
 
-에이전트 thread는 **항상 `read_only`**. 워크스페이스(`cwd`)에는 현재 고객 데이터 스냅샷 + 규정 파일만 둡니다. → 환각·인젝션이 있어도 쓰기/실행 불가 ([10](10_SECURITY_PRIVACY.md)).
+에이전트 thread는 **항상 `read_only`**. 워크스페이스(`cwd`)에는 기본적으로 `context_manifest.json`과
+정적 규정 파일만 둡니다. 동적 고객 데이터는 MCP read tools로 읽습니다. 필요 시
+`CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true`로 JSON 스냅샷 fallback을 켤 수 있지만 기본값은 `false`입니다.
+→ 환각·인젝션이 있어도 쓰기/실행 불가 ([10](10_SECURITY_PRIVACY.md)).
 
 ## 도구 노출 (MCP + 워크스페이스)
 
@@ -117,7 +120,9 @@ Codex SDK는 커스텀 함수 등록 API가 없고 **워크스페이스 + MCP** 
 | ② 통계 | MCP 읽기 도구 `get_population_stat` (또는 워크스페이스에 통계 스냅샷 파일) |
 | ③ 규정·약관 | `cwd` 워크스페이스의 **읽기 전용 파일** |
 
-> 통합 회복탄력성 판단을 위해, 워크스페이스/도구로 **건강과 자산을 함께** 제공합니다. 어댑터는 `build_context`의 JSON-like 키 — `profile/health/insurance/accounts/transactions/card_bills/loans/loan_switch_precheck/portfolio/asset_events/population/memory(.json)` — 를 워크스페이스에 materialize합니다. 단, 의료 권고는 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
+> 통합 회복탄력성 판단을 위해 MCP 도구로 **건강과 자산을 함께** 제공합니다. 어댑터는
+> `context_manifest.json`과 정적 규정 파일을 워크스페이스에 materialize합니다. 단, 의료 권고는
+> 생성하지 않도록 `developer_instructions`로 한정합니다 ([10](10_SECURITY_PRIVACY.md)).
 
 `policy_docs/`의 정적 문서(`.md`, `.txt`, `.json`)는 workspace의 `static_context/`로 복사됩니다.
 기본 샘플은 의료/금융 경계, 실행 capability 경계, 통계 사용 원칙입니다. 소스 코드나 실행 파일은

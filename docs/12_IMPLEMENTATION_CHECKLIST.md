@@ -53,7 +53,7 @@
 - [x] Codex workspace에는 현재 agent session에 필요한 파일만 둔다.
 - [x] 백엔드/프론트 소스 코드는 workspace에 포함하지 않는다.
 - [x] 회사 내규, 상품 약관, 반복 사용 통계 스냅샷 등 비교적 정적이고 유용한 문서를 read-only 파일로 제공한다.
-- [ ] 고객별 민감 데이터는 workspace에 최소화하거나 MCP read tool로 제공한다.
+- [x] 고객별 민감 데이터는 workspace에 최소화하거나 MCP read tool로 제공한다.
 - [x] workspace 생성, 재사용, 정리 정책을 문서화한다.
 
 ## API / Frontend Contract

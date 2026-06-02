@@ -129,17 +129,18 @@ curl -s localhost:8000/agent-sessions/$SID/events        # 감사 타임라인
 
 ## 6. Codex가 "실제로 본 것"을 파일로 확인
 
-`REASONER=codex`일 때, 백엔드는 `build_context`를 JSON 파일로 워크스페이스에 씁니다 (`app/agent/codex_adapter.py` `_write_workspace`). 기본 위치 `CODEX_WORKING_DIRECTORY=./workspace`:
+`REASONER=codex`일 때, 백엔드는 기본적으로 고객 민감 JSON 스냅샷을 워크스페이스에 쓰지 않고
+`context_manifest.json` + `static_context/`만 둡니다. 동적 고객 데이터는 MCP read tools로 읽습니다.
+기본 위치 `CODEX_WORKING_DIRECTORY=./workspace`:
 
 ```bash
 ls ~/JB-WM/JB-WM-backend/workspace/         # jbwm_customer_<customer_id>/ 디렉토리들
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/portfolio.json    # 모델이 읽은 자산
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/population.json   # 모델이 읽은 통계
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/transactions.json # 모델이 읽은 거래 요약
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/memory.json       # 지불의향·의료비 감내 범위·제약
+cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/context_manifest.json
 ls ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/static_context     # policy_docs 정적 문서
 ```
 → 샌드박스는 `read_only`. 모델은 이 파일들을 읽기만 하고 쓰지/실행하지 못합니다.
+→ `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true`일 때만 `portfolio.json`, `transactions.json`,
+`memory.json` 같은 fallback 스냅샷이 생성됩니다.
 
 ---
 

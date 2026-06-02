@@ -369,10 +369,11 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     files = {p.name for p in workspace.iterdir()}
 
     assert "customer_id.json" not in files
-    assert "profile.json" in files
-    assert "accounts.json" in files
-    assert "transactions.json" in files
-    assert "memory.json" in files
+    assert "context_manifest.json" in files
+    assert "profile.json" not in files
+    assert "accounts.json" not in files
+    assert "transactions.json" not in files
+    assert "memory.json" not in files
     assert not any(name.endswith(".py") for name in files)
     assert (workspace / "static_context" / "boundary.md").exists()
     assert not (workspace / "static_context" / "script.py").exists()
@@ -383,8 +384,27 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     assert server["env"]["PYTHONPATH"].endswith("JB-WM-backend")
     assert server["env"]["POLICY_DOCS_PATH"].endswith("policy_docs")
 
-    accounts = json.loads((workspace / "accounts.json").read_text(encoding="utf-8"))
-    assert accounts["liquidity_summary"]["available_cash_krw"] > 0
+    manifest = json.loads((workspace / "context_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["dynamic_data"] == "mcp_read_tools"
+    assert manifest["snapshots_included"] is False
+
+
+def test_codex_workspace_snapshot_fallback_can_be_enabled(db: Session, monkeypatch, tmp_path):
+    from app.agent.codex_adapter import _write_workspace
+    from app.core.config import settings
+    from app.tools.data_tools import build_context
+
+    monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
+    monkeypatch.setattr(settings, "codex_workspace_include_snapshots", True)
+
+    workspace = _write_workspace(build_context(db, _customer_id(db)))
+    files = {p.name for p in workspace.iterdir()}
+
+    assert "accounts.json" in files
+    assert "transactions.json" in files
+    assert "memory.json" in files
+    manifest = json.loads((workspace / "context_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["snapshots_included"] is True
 
 
 def test_codex_parse_error_is_normalized():
