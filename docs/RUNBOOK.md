@@ -14,7 +14,9 @@
 | **Codex** | 별도 서버 아님. 백엔드 안에서 SDK가 `codex_cli_bin` 바이너리를 호출 | (백엔드가 자동) | 서버 로그 `codex 호출 #N` |
 | **Frontend** | 고객 화면 (React) | `pnpm dev` | http://localhost:5173 |
 
-> Codex는 "입력 부분"이 따로 있는 게 아니라, 백엔드가 `build_context`로 모은 데이터를 **워크스페이스 JSON 파일 + 프롬프트**로 만들어 SDK에 넘깁니다. 아래 4·6 참고.
+> Codex는 "입력 부분"이 따로 있는 게 아니라, 백엔드가 고객별 thread에 **MCP read tools +
+> read-only workspace + 프롬프트**를 붙여 SDK에 넘깁니다. 기본 동적 데이터 접근은 MCP이고,
+> workspace JSON 스냅샷은 명시적으로 켠 fallback입니다. 아래 4·6 참고.
 
 ---
 
@@ -60,7 +62,7 @@ http://localhost:8000/docs
 | **상태 전이 규칙** | `app/state_machine/states.py` `TRANSITIONS` | 어떤 상태에서 어디로 갈 수 있는지 (코드가 강제) |
 | **승인 라우팅** | `app/policy/engine.py` | `has_external_effect` → auto vs 고객승인 |
 | **규칙 기반 판단(stub)** | `app/agent/stub_reasoner.py` | if-else 의도추론·계획 (읽으면 판단 로직 그대로 보임) |
-| **LLM 판단(codex)** | `app/agent/codex_adapter.py` | `SYSTEM_INSTRUCTIONS` + 프롬프트 + 출력 스키마. 실제 판단은 모델이 워크스페이스 파일+프롬프트로 수행 |
+| **LLM 판단(codex)** | `app/agent/codex_adapter.py` | `SYSTEM_INSTRUCTIONS` + MCP read tools + read-only workspace + 출력 스키마. 실제 판단은 모델이 MCP 도구와 정적 파일을 읽어 수행 |
 | **루프 조립** | `app/agent/orchestrator.py` | 신호→의도→계획→리스크→승인/실행 라우팅 |
 
 > 즉 "판단 기준"은 두 곳: **결정론적 규칙(코드)** = 상태머신+Policy, **추론(LLM)** = codex_adapter의 프롬프트·스키마. 실행 권한은 둘 다 없음(Executor만).

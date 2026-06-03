@@ -276,7 +276,11 @@ class CodexReasoner:
 
     async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
         prompt = (
-            "워크스페이스의 고객 데이터를 읽고, 아래 신호로부터 고객의 통합 필요도를 평가하세요. "
+            "등록된 MCP 읽기 도구로 고객 데이터를 조회한 뒤, 아래 신호로부터 고객의 통합 필요도를 평가하세요. "
+            "최소한 get_customer_profile, get_health_data, get_insurance_summary, "
+            "get_portfolio_summary, get_asset_events, get_customer_memory를 확인하세요. "
+            "워크스페이스에는 기본적으로 민감 고객 JSON 스냅샷이 없고, context_manifest.json과 "
+            "static_context만 있습니다. memory.json/population.json 같은 파일이 있다고 가정하지 마세요. "
             "단일 intent로 좁히지 말고 medical_cost_need, insurance_need, cashflow_need, "
             "asset_defense_need, investment_adjust_need, life_plan_need를 각각 none/low/mid/high로 "
             "평가하세요. 고객이 직접 요청한 영역은 강하게 반영하되, 애매하면 clarifying_question을 작성하세요.\n"
@@ -289,12 +293,15 @@ class CodexReasoner:
         self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
     ) -> Plan:
         prompt = (
-            "워크스페이스의 고객 데이터(건강·자산 통합)와 통계(population.json), "
-            "장기 메모리(memory.json: 지불의향·의료비 감내 범위·성향·제약), 그리고 통합 필요도 평가를 반영하여 "
+            "등록된 MCP 읽기 도구로 건강·자산 통합 고객 데이터, 통계, 장기 메모리를 조회한 뒤 "
+            "통합 필요도 평가를 반영하여 "
             "액션 제안 계획을 만드세요. 판단 순서는 생애설계 필요성, 의료비, 보험, 현금흐름, "
             "자산방어, 투자전략 종합입니다. 외부 효과(예약·청구·구매·송금·포트폴리오 변경)가 있는 액션은 "
             "has_external_effect=true로 표시하세요. 고객 제약(예: 투자 보류)은 반영해 해당 제안을 "
-            "제외하세요. 의료 권고가 아니라 재무 대비·통계 참고만 합니다. 실제 실행은 하지 않습니다.\n"
+            "제외하세요. get_population_stat 결과는 출처/as_of와 함께 참고하고, get_customer_memory의 "
+            "지불의향·의료비 감내 범위·성향·제약을 개인화에 반영하세요. 워크스페이스에는 기본적으로 "
+            "민감 고객 JSON 스냅샷이 없으므로 memory.json/population.json 같은 파일이 있다고 가정하지 마세요. "
+            "의료 권고가 아니라 재무 대비·통계 참고만 합니다. 실제 실행은 하지 않습니다.\n"
             f"통합 필요도 평가: {assessment.model_dump_json()}\n"
             "LLMPlan 스키마(JSON)로만 답하세요."
         )

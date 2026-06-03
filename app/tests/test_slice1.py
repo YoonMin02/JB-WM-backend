@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import inspect as py_inspect
 import sys
 import types
 from datetime import timedelta
@@ -436,7 +437,7 @@ def test_financial_read_tools_hide_provider_identifiers(db: Session):
         assert hidden not in serialized
 
 
-def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatch, tmp_path):
+def test_codex_workspace_minimizes_sensitive_snapshots(db: Session, monkeypatch, tmp_path):
     from app.agent.codex_adapter import _mcp_config, _write_workspace
     from app.core.config import settings
     from app.tools.data_tools import build_context
@@ -473,6 +474,17 @@ def test_codex_workspace_contains_only_context_snapshots(db: Session, monkeypatc
     manifest = json.loads((workspace / "context_manifest.json").read_text(encoding="utf-8"))
     assert manifest["dynamic_data"] == "mcp_read_tools"
     assert manifest["snapshots_included"] is False
+
+
+def test_codex_prompts_do_not_require_removed_snapshot_files():
+    from app.agent.codex_adapter import CodexReasoner
+
+    source = py_inspect.getsource(CodexReasoner.assess_need) + py_inspect.getsource(
+        CodexReasoner.generate_plan
+    )
+    assert "등록된 MCP 읽기 도구" in source
+    assert "population.json)," not in source
+    assert "memory.json:" not in source
 
 
 def test_codex_workspace_snapshot_fallback_can_be_enabled(db: Session, monkeypatch, tmp_path):

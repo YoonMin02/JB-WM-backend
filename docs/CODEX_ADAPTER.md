@@ -51,7 +51,7 @@ async with AsyncCodex() as codex:
         model="gpt-5.4",                       # 실제 모델명은 codex.models()로 확인
         sandbox=Sandbox.read_only,             # ★ capability 보안: 읽기 전용
         developer_instructions=SYSTEM_INSTRUCTIONS,
-        cwd=session_workspace_path,            # 현재 고객 스냅샷 + 규정 파일만
+        cwd=session_workspace_path,            # context_manifest + static_context
         config={...},                          # MCP 서버 등 codex config 패스스루
     )
     session.agent_thread_id = thread.id        # 즉시 영속화 (재개·감사)
