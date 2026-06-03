@@ -38,7 +38,7 @@ source .venv/bin/activate
 python -c "from openai_codex import AsyncCodex; print('OK')"
 ```
 
-> **openai-codex-cli-bin (glibc Linux 우회):** Codex SDK 의존성 `openai-codex-cli-bin`은 musl 정적 바이너리로만 배포되어, Ubuntu/WSL pip이 자동 선택하지 못합니다. `scripts/install.sh`가 `--python-platform x86_64-unknown-linux-musl`로 설치한 뒤 `pydantic-core`만 manylinux 휠로 재설치합니다. (정적 빌드라 glibc에서도 실행됨 — 검증 완료)
+> **openai-codex-cli-bin (glibc Linux 우회):** Codex SDK 의존성 `openai-codex-cli-bin`은 musl 정적 바이너리로만 배포되어, Ubuntu/WSL pip/uv의 일반 resolver가 자동 선택하지 못합니다. `scripts/install.sh`가 일반 Python 의존성을 먼저 설치한 뒤, CLI 바이너리만 `--python-platform x86_64-unknown-linux-musl`로 설치하고, 마지막에 `openai-codex` SDK를 `--no-deps`로 설치합니다. (정적 빌드라 glibc에서도 실행됨)
 
 ## 3. 환경변수
 
@@ -54,6 +54,18 @@ cp .env.example .env
 source .venv/bin/activate
 uvicorn app.main:app --reload   # GET /health
 pytest
+```
+
+일반 개발 테스트만 빠르게 돌릴 때는 아래도 동작해야 합니다.
+
+```bash
+uv run pytest -q
+```
+
+실제 SDK 연동 smoke test는 OAuth/session 대기에서 오래 멈출 수 있으므로 shell timeout을 씁니다.
+
+```bash
+timeout 120s .venv/bin/python scripts/codex_smoke_test.py
 ```
 
 ## 버전 확인 체크리스트

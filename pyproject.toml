@@ -14,9 +14,6 @@ dependencies = [
     "python-dotenv>=1.0",
     "httpx>=0.28",
     "psycopg2-binary>=2.9",
-    "openai-codex>=0.1.0b2",
-    # openai-codex-cli-bin은 openai-codex의 전이 의존성.
-    # glibc Linux(Ubuntu/WSL)에서는 musl 휠 강제 설치가 필요 → scripts/install.sh 참고.
 ]
 
 [dependency-groups]

@@ -12,13 +12,14 @@ erDiagram
     Customer ||--o{ HealthRecord : has
     Customer ||--o{ HealthEvent : has
     Customer ||--o{ MedicalDocument : submits
+    Customer ||--o{ ConsentRecord : grants
     Customer ||--o{ AssetEvent : has
     Customer ||--|| CustomerMemory : has
     Customer ||--o{ AgentSession : has
     PortfolioAccount ||--o{ Holding : contains
     InsurancePolicy ||--o{ CoverageItem : contains
     AgentSession ||--o{ Signal : receives
-    AgentSession ||--o{ Intent : infers
+    AgentSession ||--o{ NeedAssessment : assesses
     AgentSession ||--o{ Plan : generates
     Plan ||--o{ ActionProposal : contains
     ActionProposal ||--o| ApprovalDecision : has
@@ -73,6 +74,18 @@ erDiagram
 
 > 주관(인지·성격·지불의향)은 `CustomerMemory`에, **객관 의료 사실은 `MedicalDocument`/`HealthRecord`에** 분리 저장. 질병 평가는 객관 데이터 + 통계, 대응 개인화는 주관.
 
+### ConsentRecord
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | str | consent id. `HealthRecord.consent_id`, `MedicalDocument.consent_id`와 연결 |
+| customer_id | uuid | FK |
+| scope | str | 예: `health` |
+| status | str | `active` / `revoked` |
+| granted_at, revoked_at | datetime | 동의/철회 시각 |
+
+동의 철회 시 `revoke_consent()`가 해당 consent에 연결된 `HealthRecord`와 `MedicalDocument`를 삭제하고
+`ConsentRecord.status="revoked"`로 표시합니다.
+
 ### PortfolioAccount / Holding
 | Holding 필드 | 타입 | 설명 |
 |---|---|---|
@@ -124,6 +137,9 @@ erDiagram
 |---|---|---|
 | customer_id | uuid | PK/FK |
 | **medical_willingness** | str | **지불의향** `conservative`/`moderate`/`aggressive` — 1급 개인화 변수 ([08](08_MEMORY.md)) |
+| medical_one_time_budget_krw | decimal | 고객이 감내 가능한 일회성 의료비 부담 한도 |
+| monthly_medical_budget_krw | decimal | 고객이 감내 가능한 월 의료비/건강 관련 지출 한도 |
+| medical_budget_ratio | float | 월 현금흐름 대비 의료비 부담 허용 비율 |
 | risk_preference | str | `low`/`mid`/`high` |
 | hospital_preference | str | 예: "전북대학교병원" |
 | investment_style | str | `stable`/`balanced`/`aggressive` |
@@ -136,7 +152,7 @@ erDiagram
 | id | uuid | PK |
 | customer_id | uuid | FK |
 | state | str | 현재 FSM 상태 ([03](03_STATE_MACHINE.md)) |
-| active_intents | json | 의도별 서브상태 |
+| active_needs | json | `primary_need`와 필요도별 level |
 | agent_thread_id | str | 추론 세션 참조 (어댑터 해석) |
 | pending_proposal_id | uuid | 승인 대기 중 ActionProposal |
 | recent_context | json | 최근 대화/진행상황 (단기) |
@@ -153,20 +169,49 @@ erDiagram
 | payload | json | 이벤트 데이터 또는 발화 |
 | created_at | datetime | |
 
-### Intent
+### AgentMessage
+
+고객 발화, 시스템 신호, assistant 요약을 append-only로 저장합니다.
+`AgentEvent`는 UI 타임라인이고, `AgentMessage`는 compact와 무관한 전문/감사용 기록입니다.
+
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | id | uuid | PK |
 | session_id | uuid | FK |
-| state | str | `*Intent` 중 하나 |
+| role | str | `user` / `system` / `assistant` / `tool` |
+| content | str | 원문 또는 요약 |
+| metadata | json | source, payload, proposal ids 등 |
+| created_at | datetime | |
+
+### NeedAssessmentRecord
+
+`AssessNeed`의 구조화 결과를 저장합니다.
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| session_id | uuid | FK |
+| needs | json | 6개 need level |
+| primary_need | str | UI/설명용 주 관심축 |
 | confidence | float | |
 | rationale | str | 근거 (설명가능성) |
+| raw_output | json | 전체 구조화 출력 |
+| created_at | datetime | |
 
-### Plan / ActionProposal
+### PlanRecord / ActionProposal
+| PlanRecord 필드 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| session_id | uuid | FK |
+| explanation | str | 계획 설명 |
+| raw_output | json | 전체 구조화 출력 |
+| proposal_ids | json | 생성된 ActionProposal id 목록 |
+| created_at | datetime | |
+
 | ActionProposal 필드 | 타입 | 설명 |
 |---|---|---|
 | id | uuid | PK |
-| plan_id | uuid | FK |
+| session_id | uuid | FK |
 | kind | str | `book_hospital`,`review_insurance`… |
 | summary | str | 고객에게 보일 요약 |
 | has_external_effect | bool | **Policy 라우팅 입력** |
@@ -244,4 +289,4 @@ DB가 아니라 파일로 둡니다 (read-only 워크스페이스). 메타데이
 
 이력(append-only)이 "왜 이 제안을 했는가"를 사후 추적 가능하게 하고, `CustomerMemory`의 영속이 "장기 에이전트"를 만듭니다.
 
-> **보유·파기 (규제)**: 영속은 **동의 범위·보유기간 내**에서만입니다. 개인정보보호법상 보유기간 만료·**동의 철회(잊힐 권리)** 시 파기해야 하며, 건강은 민감정보라 더 엄격합니다. MVP는 저장만 구현하되 이 원칙을 따릅니다 ([10](10_SECURITY_PRIVACY.md)).
+> **보유·파기 (규제)**: 영속은 **동의 범위·보유기간 내**에서만입니다. 개인정보보호법상 보유기간 만료·**동의 철회(잊힐 권리)** 시 파기해야 하며, 건강은 민감정보라 더 엄격합니다. 현재 구현은 `ConsentRecord` 철회 시 연결 건강/의료 문서를 삭제하고, 보유기간을 넘긴 `AgentMessage` 전문을 purge할 수 있습니다 ([10](10_SECURITY_PRIVACY.md)).

@@ -14,7 +14,9 @@
 | **Codex** | 별도 서버 아님. 백엔드 안에서 SDK가 `codex_cli_bin` 바이너리를 호출 | (백엔드가 자동) | 서버 로그 `codex 호출 #N` |
 | **Frontend** | 고객 화면 (React) | `pnpm dev` | http://localhost:5173 |
 
-> Codex는 "입력 부분"이 따로 있는 게 아니라, 백엔드가 `build_context`로 모은 데이터를 **워크스페이스 JSON 파일 + 프롬프트**로 만들어 SDK에 넘깁니다. 아래 4·6 참고.
+> Codex는 "입력 부분"이 따로 있는 게 아니라, 백엔드가 고객별 thread에 **MCP read tools +
+> read-only workspace + 프롬프트**를 붙여 SDK에 넘깁니다. 기본 동적 데이터 접근은 MCP이고,
+> workspace JSON 스냅샷은 명시적으로 켠 fallback입니다. 아래 4·6 참고.
 
 ---
 
@@ -60,7 +62,7 @@ http://localhost:8000/docs
 | **상태 전이 규칙** | `app/state_machine/states.py` `TRANSITIONS` | 어떤 상태에서 어디로 갈 수 있는지 (코드가 강제) |
 | **승인 라우팅** | `app/policy/engine.py` | `has_external_effect` → auto vs 고객승인 |
 | **규칙 기반 판단(stub)** | `app/agent/stub_reasoner.py` | if-else 의도추론·계획 (읽으면 판단 로직 그대로 보임) |
-| **LLM 판단(codex)** | `app/agent/codex_adapter.py` | `SYSTEM_INSTRUCTIONS` + 프롬프트 + 출력 스키마. 실제 판단은 모델이 워크스페이스 파일+프롬프트로 수행 |
+| **LLM 판단(codex)** | `app/agent/codex_adapter.py` | `SYSTEM_INSTRUCTIONS` + MCP read tools + read-only workspace + 출력 스키마. 실제 판단은 모델이 MCP 도구와 정적 파일을 읽어 수행 |
 | **루프 조립** | `app/agent/orchestrator.py` | 신호→의도→계획→리스크→승인/실행 라우팅 |
 
 > 즉 "판단 기준"은 두 곳: **결정론적 규칙(코드)** = 상태머신+Policy, **추론(LLM)** = codex_adapter의 프롬프트·스키마. 실행 권한은 둘 다 없음(Executor만).
@@ -80,7 +82,7 @@ http://localhost:8000/docs
 | `portfolio` | `get_portfolio_summary` | `portfolioaccount`, `holding` |
 | `asset_events` | `get_asset_events` | `assetevent` |
 | `population` | `get_population_stat` | `populationstat` (② 통계, 출처 동반) |
-| `memory` | `get_customer_memory` | `customermemory` (지불의향·성향·제약) |
+| `memory` | `get_customer_memory` | `customermemory` (지불의향·의료비 감내 범위·성향·제약) |
 
 - 이 데이터의 **초기값(mock)** 은 `app/seed.py` (김영자 68세).
 - **통계**는 `populationstat` 테이블에 시드됨 (실제 출처 후보는 [STATS_SOURCES](STATS_SOURCES.md)).
@@ -129,15 +131,18 @@ curl -s localhost:8000/agent-sessions/$SID/events        # 감사 타임라인
 
 ## 6. Codex가 "실제로 본 것"을 파일로 확인
 
-`REASONER=codex`일 때, 백엔드는 `build_context`를 JSON 파일로 워크스페이스에 씁니다 (`app/agent/codex_adapter.py` `_write_workspace`). 기본 위치 `CODEX_WORKING_DIRECTORY=./workspace`:
+`REASONER=codex`일 때, 백엔드는 기본적으로 고객 민감 JSON 스냅샷을 워크스페이스에 쓰지 않고
+`context_manifest.json` + `static_context/`만 둡니다. 동적 고객 데이터는 MCP read tools로 읽습니다.
+기본 위치 `CODEX_WORKING_DIRECTORY=./workspace`:
 
 ```bash
-ls ~/JB-WM/JB-WM-backend/workspace/         # jbwm_ws_XXXX/ 디렉토리들
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_ws_*/portfolio.json   # 모델이 읽은 자산
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_ws_*/population.json  # 모델이 읽은 통계
-cat ~/JB-WM/JB-WM-backend/workspace/jbwm_ws_*/memory.json      # 지불의향·제약
+ls ~/JB-WM/JB-WM-backend/workspace/         # jbwm_customer_<customer_id>/ 디렉토리들
+cat ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/context_manifest.json
+ls ~/JB-WM/JB-WM-backend/workspace/jbwm_customer_*/static_context     # policy_docs 정적 문서
 ```
 → 샌드박스는 `read_only`. 모델은 이 파일들을 읽기만 하고 쓰지/실행하지 못합니다.
+→ `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true`일 때만 `portfolio.json`, `transactions.json`,
+`memory.json` 같은 fallback 스냅샷이 생성됩니다.
 
 ---
 
@@ -165,8 +170,10 @@ GUI로 보고 싶으면 DBeaver/TablePlus/pgAdmin에 `postgresql://jbwm:jbwm@loc
 ## 8. 로깅 — 무슨 일이 일어나는지 실시간으로
 
 - **서버 stdout**: 상태 전이(`session X: A -> B`), Codex 호출 수(`codex 호출 #N`), Executor 실행. `LOG_LEVEL=info`(.env).
-- **DB `agentevent`**: 모든 단계 영속 (state_transition / tool_call / intent / plan / execution / memory).
+- **DB `agentevent`**: 모든 단계 영속 (state_transition / tool_call / need_assessment / plan / execution / memory).
 - **API `GET /agent-sessions/{id}/events`**: 그 세션의 타임라인 (프론트 Timeline 화면이 이걸 그림).
+- **MCP read tools**: `REASONER=codex`일 때 `python -m app.mcp.read_server`가 thread config로
+  등록됩니다. tool call은 `AgentEvent(type="tool_call", detail.via="mcp")`로 남습니다.
 
 서버 로그를 따로 보고 싶으면:
 ```bash
@@ -182,13 +189,16 @@ grep "jbwm" /tmp/jbwm.log                                   # 우리 로그만
 source .venv/bin/activate
 pytest app/tests/ -v
 #   test_capability_no_execution_tools : 실행 도구 부재(권한 경계)
-#   test_slice1_insurance_approval_flow: 승인 흐름 종단
-#   test_slice2_asset_trigger_resilience: 자산 트리거 + 개인화(투자보류 제외)
-#   test_slice2_population_stat_tool   : 통계 도구(출처 동반)
+#   test_insurance_approval_flow       : 승인 흐름 종단
+#   test_asset_trigger_resilience      : 자산 트리거 + 개인화(투자보류 제외)
+#   test_mcp_read_tools_are_scoped_and_audited : MCP scope/audit
+#   test_jwt_and_customer_scope_guard  : JWT/customer scope
 ```
 
-## 10. Codex 연결만 따로 점검
+## 10. SDK 연결만 따로 점검
 
 ```bash
-python scripts/codex_smoke_test.py     # 연결·모델목록·구조화출력 1회 확인
+timeout 120s .venv/bin/python scripts/codex_smoke_test.py
 ```
+
+이 smoke test는 seed/mock 고객 컨텍스트로 `assess_need -> generate_plan`을 실제 SDK reasoner에 호출하고, 같은 thread id가 재사용되는지 확인한다. OAuth/session 단계가 native subprocess에서 대기할 수 있으므로 shell `timeout`으로 감싼다.

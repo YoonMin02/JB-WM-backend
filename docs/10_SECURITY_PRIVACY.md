@@ -38,19 +38,25 @@ flowchart LR
     end
     subgraph 제공["회사/AI가 제공"]
         F1[재무·보장 대비]
-        F2[통계 참고정보<br/>출처 명시]
-        F3[전문가·기관 연결]
+        F2[비용 범위별<br/>재무 시나리오]
+        F3[통계 참고정보<br/>출처 명시]
+        F4[전문가·기관 연결]
     end
     DEC[의료 결정권: 고객 + 주치의]
 ```
 
 | 원칙 | 구현 |
 |---|---|
-| 의료 권고를 생성하지 않는다 | reasoner 출력 스키마·프롬프트가 "재무·통계·연결"로 한정 ([04](04_AGENT_RUNTIME.md)). `HealthCareIntent`는 *의료비 대비*이지 처치 권고가 아님 |
+| 의료 권고를 생성하지 않는다 | reasoner 출력 스키마·프롬프트가 "재무·통계·연결·비용 범위별 시나리오"로 한정 ([04](04_AGENT_RUNTIME.md)). `medical_cost_need`는 *의료비 감내 범위 설계*이지 처치 권고가 아님 |
 | 통계는 참고정보로만 | `get_population_stat` 결과에 **출처·기준시점** 동반 ([06](06_TOOL_CONTRACTS.md), [STATS_SOURCES](STATS_SOURCES.md)) |
 | 의료 결정권은 고객·주치의 | 모든 의료 관련 출력에 면책·전문가 연결 안내 |
 
-> "이 치료를 받으세요"(❌) → "*당신이 정한 예산·지불의향* 하에서 재무적으로 이렇게 대비되고, 통계상 비용은 이 정도이며, 상담은 여기"(✅). 부담을 **안전장치로 전환**합니다.
+> "이 치료를 받으세요"(❌) → "의료진과 상의할 선택지의 비용 범위는 이렇게 나눠볼 수 있고, *당신이 정한 예산·지불의향* 하에서는 재무적으로 이렇게 대비됩니다"(✅). 부담을 **안전장치로 전환**합니다.
+
+허용되는 의료 관련 출력은 **선택지를 의학적으로 서열화하지 않는 비용·준비 정보**입니다.
+예: 기본 검사/추적 관찰 중심, 추가 정밀검사 포함, 입원·시술 가능성까지 고려한 비용 범위.
+각 범위에 대해 현금흐름, 보험 보장, 자기부담 가능성, 투자 유동화 필요성, 주치의에게 확인할
+질문을 정리할 수 있습니다.
 
 → 두 경계가 함께 책임소재(5.5)·내부통제(2.4)의 답입니다.
 
@@ -76,7 +82,7 @@ flowchart LR
 | 구분 | 출처 | 쓰임 |
 |---|---|---|
 | **객관 의료 사실** | 제출된 **진단서·검진 내역**(`MedicalDocument`) + 통계 | 질병·리스크 **평가의 앵커** |
-| **주관** | 자연어 발화 → 인지·성격·**지불의향**(`CustomerMemory`) | **대응의 개인화**에만 (질병 평가엔 안 씀) |
+| **주관** | 자연어 발화 → 인지·성격·**의료비 감내 범위/지불의향**(`CustomerMemory`) | **대응의 개인화**에만 (질병 평가엔 안 씀) |
 
 → 회사는 *채팅으로 병을 진단·평가하지 않고*, 객관 문서 + 통계로 **재무 대비**만 합니다. 이것이 의료 경계를 더 단단하게 합니다.
 
@@ -87,11 +93,17 @@ flowchart LR
 - 보유기간 만료 또는 **동의 철회 시 파기**(개인정보보호법, 잊힐 권리).
 - 건강·의료는 민감정보라 보유·접근을 더 엄격히 제한한다.
 - 감사 이력(append-only)도 법정 보유기간을 넘기면 익명화/파기 대상.
-- MVP는 저장만 구현하되 이 원칙을 문서·설계에 반영한다 (평가 2.4).
+- 현재 구현:
+  - `ConsentRecord`가 동의 상태를 추적한다.
+  - `POST /customers/{id}/privacy/consents/{consent_id}/revoke`가 동의를 철회하고, 해당
+    `consent_id`에 연결된 `HealthRecord`와 `MedicalDocument`를 삭제한다.
+  - `purge_expired_sensitive_messages()`가 `PRIVACY_SENSITIVE_RETENTION_DAYS` 기준을 넘긴
+    `AgentMessage` 전문을 삭제한다.
 
 ## 3. 데이터 격리
 
-- 에이전트 워크스페이스에는 **현재 고객의 스냅샷만** 둔다. 다른 고객 데이터 금지.
+- 에이전트 워크스페이스에는 기본적으로 **민감 고객 스냅샷을 두지 않고** `context_manifest.json`과
+  정적 규정 파일만 둔다. fallback 스냅샷을 켜더라도 현재 고객 데이터만 허용하며 다른 고객 데이터는 금지.
 - MCP 도구는 인증 주체의 `customer_id`로 스코핑한다.
 - `get_all_*` 같은 광범위 접근 금지.
 
@@ -103,14 +115,21 @@ flowchart LR
 | 어드바이저 | 담당 고객 모니터링, 제한적 개입 |
 | 운영자 | 규정·통계·정책 규칙 관리 (고객 데이터 직접 접근 최소화) |
 
-MVP: 세션 또는 JWT. 시크릿은 환경변수 ([ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)), 소스/문서에 하드코딩 금지.
+JWT 기반 인증/인가를 사용합니다. 시크릿은 환경변수 ([ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)), 소스/문서에 하드코딩 금지.
+
+현재 구현:
+- `app/core/auth.py`가 HS256 JWT 생성/검증과 `Principal(role, customer_id)`를 제공한다.
+- `current_principal` dependency가 Bearer token을 검증한다.
+- 고객 데이터/세션/제안/동의 철회 라우트는 `require_customer_access()`로 customer scope를 검사한다.
+- `local`/`dev` 환경에서는 README 실행 편의를 위해 Authorization 헤더가 없으면 개발용 `operator`
+  principal을 사용한다. staging/prod에서는 토큰이 없으면 401.
 
 ## 5. 설명가능성 & 감사 (평가 5.5)
 
 전 구간을 추적합니다:
 
 ```
-Signal → Intent(rationale) → Plan(explanation) → ApprovalDecision(누가/언제) → ActionExecution(무엇을)
+Signal → NeedAssessment(rationale) → Plan(explanation) → ApprovalDecision(누가/언제) → ActionExecution(무엇을)
 ```
 
 - 각 의도·계획에 **근거(rationale)** 가 기록됨 → 왜 이 제안을 했는지 설명 가능.

@@ -12,9 +12,13 @@ flowchart LR
         T3[get_portfolio_summary]
         T4[get_insurance_summary]
         T5[get_loan_status]
-        T6[get_population_stat]
-        T7[search_policy_documents]
-        T8[get_customer_memory]
+        T6[get_account_balances]
+        T7[get_account_transactions]
+        T8[get_card_bills]
+        T9[get_loan_switch_precheck]
+        T10[get_population_stat]
+        T11[search_policy_documents]
+        T12[get_customer_memory]
     end
     subgraph Forbidden["에이전트에 존재하지 않는 것"]
         X1[book_hospital ✗]
@@ -38,11 +42,30 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 | ② 통계/기준 | **MCP 읽기 도구** (파라미터 쿼리) | 읽기 전용 도구 |
 | ③ 규정·약관 (정적) | **read-only 워크스페이스 파일** | `Sandbox.read_only` |
 
-> 에이전트 thread는 항상 `Sandbox.read_only`로 시작합니다. 워크스페이스에는 **현재 고객의 데이터 스냅샷 + 규정 파일만** 둡니다. 다른 고객 데이터는 워크스페이스에 두지 않습니다 (격리). 자세히는 [CODEX_ADAPTER.md](CODEX_ADAPTER.md).
+> 에이전트 thread는 항상 `Sandbox.read_only`로 시작합니다. 기본 워크스페이스에는
+> `context_manifest.json`과 정적 규정 파일만 두고, 동적 고객 데이터는 MCP read tools로 읽습니다.
+> `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true`일 때만 제한된 JSON 스냅샷 fallback을 생성합니다.
+> 다른 고객 데이터는 워크스페이스에 두지 않습니다 (격리). 자세히는 [CODEX_ADAPTER.md](CODEX_ADAPTER.md).
+
+정적 규정/약관/반복 정책 문서는 `policy_docs/` 아래에 둡니다. Codex workspace에는 `.md`, `.txt`,
+`.json` 파일만 `static_context/`로 복사되며, 코드/실행 파일은 복사하지 않습니다.
+
+현재 구현:
+- MCP stdio 서버: `python -m app.mcp.read_server`
+- tool registry: `app/mcp/read_tools.py`
+- Codex 등록: `CodexReasoner`가 `thread_start`/`thread_resume`의 `config.mcp_server_config`에
+  `jbwm-read-tools`를 추가
+- 고객 scope: `JBWM_MCP_CUSTOMER_ID` env로 고정. 모델이 tool argument에 `customer_id`를 넣어도 무시
+- 감사: `JBWM_MCP_SESSION_ID`가 있으면 모든 tool call을 `AgentEvent(type="tool_call")`로 저장
 
 ## 도구 목록 (① 고객 개인)
 
 모든 고객 도구는 **`customer_id`로 스코핑**됩니다. `get_all_*` 같은 광범위 도구는 금지.
+
+외부 금융 API의 원문 request/response shape는 [`APIs/`](APIs/)에 보관합니다.
+MVP에서는 실제 외부 API를 호출하지 않고, 해당 shape를 기준으로 mock adapter를 만듭니다.
+agent tool은 provider 원문 응답을 그대로 노출하지 않고, [`APIs/AGENT_TOOL_MAPPING.md`](APIs/AGENT_TOOL_MAPPING.md)의
+정규화된 read tool 결과만 제공합니다.
 
 ### get_customer_profile
 ```
@@ -87,10 +110,41 @@ Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP
 용도:  현금흐름 리스크 계산
 ```
 
+### get_account_balances / get_account_transactions
+```
+입력:  { customer_id: str, from?: date, to?: date }
+출력:  정규화된 계좌 잔액·거래내역 요약 (APIs/AGENT_TOOL_MAPPING.md)
+용도:  현금흐름, 유동성, 의료비/고정비 지출 감지
+주의:  access_token, fintech_use_num, 계좌번호는 agent에 노출하지 않음
+```
+
+### get_card_bills
+```
+입력:  { customer_id: str, from_month?: str, to_month?: str }
+출력:  정규화된 카드 청구 기본/상세 요약
+용도:  다음 달 결제 예정액, 의료비/고정비 카드 지출 감지
+```
+
+### get_loan_switch_precheck
+```
+입력:  { customer_id: str, loan_id: str }
+출력:  대출이동 사전조회 mock 결과 (상환 가능 여부, 중도상환수수료 등)
+용도:  대환 가능성 참고. 실제 대환 실행은 Executor only
+```
+
 ### get_customer_memory
 ```
 입력:  { customer_id: str }
-출력:  { medical_willingness, risk_preference, hospital_preference, investment_style, constraints }
+출력:  {
+        medical_willingness,
+        medical_one_time_budget_krw,
+        monthly_medical_budget_krw,
+        medical_budget_ratio,
+        risk_preference,
+        hospital_preference,
+        investment_style,
+        constraints
+      }
 용도:  개인화 (계획 생성 시 반영, 지불의향 포함) — 08 참고
 ```
 

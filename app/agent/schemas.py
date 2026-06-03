@@ -8,13 +8,16 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-IntentState = Literal[
-    "HealthCareIntent",
-    "InsuranceIntent",
-    "AssetDefenseIntent",
-    "InvestmentAdjustIntent",
-    "LifePlanIntent",
-    "IntentUnknown",
+NeedLevel = Literal["none", "low", "mid", "high"]
+PrimaryNeed = Literal[
+    "medical_cost",
+    "insurance",
+    "cashflow",
+    "asset_defense",
+    "investment_adjust",
+    "life_plan",
+    "preference_update",
+    "none",
 ]
 
 ActionKind = Literal[
@@ -27,15 +30,39 @@ ActionKind = Literal[
 ]
 
 
-class IntentInference(BaseModel):
-    state: IntentState
+class NeedAssessment(BaseModel):
+    """통합 필요도 평가. FSM 상태가 아니라 AssessNeed 단계의 구조화 출력."""
+
+    medical_cost_need: NeedLevel = "none"
+    insurance_need: NeedLevel = "none"
+    cashflow_need: NeedLevel = "none"
+    asset_defense_need: NeedLevel = "none"
+    investment_adjust_need: NeedLevel = "none"
+    life_plan_need: NeedLevel = "none"
+    primary_need: PrimaryNeed = "none"
     confidence: float = 0.0
     rationale: str = ""
+    preference_update_only: bool = False
+    no_action: bool = False
     clarifying_question: str | None = None
 
     @property
-    def is_unknown(self) -> bool:
-        return self.state == "IntentUnknown"
+    def needs_clarification(self) -> bool:
+        return self.clarifying_question is not None
+
+    @property
+    def has_actionable_need(self) -> bool:
+        return any(
+            level != "none"
+            for level in (
+                self.medical_cost_need,
+                self.insurance_need,
+                self.cashflow_need,
+                self.asset_defense_need,
+                self.investment_adjust_need,
+                self.life_plan_need,
+            )
+        )
 
 
 class ActionProposalSchema(BaseModel):
@@ -49,6 +76,7 @@ class ActionProposalSchema(BaseModel):
 class Plan(BaseModel):
     proposals: list[ActionProposalSchema] = Field(default_factory=list)
     explanation: str = ""
+    assessment: NeedAssessment | None = None
 
 
 # ── LLM 출력 전용 스키마 (strict 호환: free-form dict 없음) ──
@@ -67,7 +95,7 @@ class LLMPlan(BaseModel):
     proposals: list[LLMActionProposal]
     explanation: str
 
-    def to_plan(self) -> Plan:
+    def to_plan(self, assessment: NeedAssessment | None = None) -> Plan:
         return Plan(
             proposals=[
                 ActionProposalSchema(
@@ -80,4 +108,5 @@ class LLMPlan(BaseModel):
                 for p in self.proposals
             ],
             explanation=self.explanation,
+            assessment=assessment,
         )
