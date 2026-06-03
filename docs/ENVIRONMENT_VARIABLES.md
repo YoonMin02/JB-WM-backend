@@ -20,7 +20,6 @@
 | 변수 | 필수 | 설명 |
 |---|---|---|
 | `JWT_SECRET` | Depends | JWT 사용 시 필수 |
-| `SESSION_SECRET` | Depends | 세션 인증 사용 시 |
 
 ## Privacy
 | 변수 | 필수 | 기본 | 설명 |
@@ -48,10 +47,10 @@
 | `LOCAL_STORAGE_PATH` | No | 로컬 파일 경로 |
 | `POLICY_DOCS_PATH` | No | 규정·약관 파일 디렉토리 (③ 비정형, read-only 워크스페이스에 동기화) |
 
-## Statistics (선택)
-| 변수 | 필수 | 설명 |
-|---|---|---|
-| `STATS_DATASET_PATH` | No | 통계 데이터셋 경로 (② KOSIS/KIDI/KNHANES) |
+## Statistics
+
+현재 통계는 `PopulationStat` 시드 데이터와 `get_population_stat` MCP read tool로 제공합니다.
+별도 통계 파일 경로 환경변수는 아직 `Settings`에 연결되어 있지 않습니다.
 
 ## Queue / 관측 (나중)
 | 변수 | 필수 | 설명 |

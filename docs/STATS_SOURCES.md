@@ -59,4 +59,4 @@
 - 시드 스크립트/시드 데이터 위치: `app/seed.py` 또는 `data/stats/*.json` (추후)
 - 도구 계약: [06_TOOL_CONTRACTS](06_TOOL_CONTRACTS.md) `get_population_stat`
 - 데이터 모델: [05_DATA_MODEL](05_DATA_MODEL.md) `PopulationStat`
-- 키·시크릿은 `.env`로 ([ENVIRONMENT_VARIABLES](ENVIRONMENT_VARIABLES.md) `STATS_DATASET_PATH` 등), 소스에 하드코딩 금지.
+- 외부 통계 API를 실제 연동할 때 필요한 키·시크릿은 `.env`로 관리하고, 소스에 하드코딩하지 않습니다 ([ENVIRONMENT_VARIABLES](ENVIRONMENT_VARIABLES.md)).

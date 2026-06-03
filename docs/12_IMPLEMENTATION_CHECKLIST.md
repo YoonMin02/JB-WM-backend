@@ -39,6 +39,10 @@
   - [x] `get_asset_events`
   - [x] `get_insurance_summary`
   - [x] `get_loan_status`
+  - [x] `get_account_balances`
+  - [x] `get_account_transactions`
+  - [x] `get_card_bills`
+  - [x] `get_loan_switch_precheck`
   - [x] `get_customer_memory`
 - [x] 통계/기준 도구:
   - [x] `get_population_stat`

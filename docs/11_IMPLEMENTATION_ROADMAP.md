@@ -55,7 +55,7 @@ Monitoring → (mock 신호: portfolio_loss) → SignalDetected → AssessNeed(c
 구현됨:
 - `AssetEvent` + 자산 트리거(`portfolio_loss` 등) → `AssessNeed`
 - `MedicalDocument`(객관 문서) · `PopulationStat`(통계) 모델 + 시드
-- 도구: `get_portfolio_summary`, `get_asset_events`, **`get_population_stat`**(출처 동반)
+- 도구: `get_portfolio_summary`, `get_asset_events`, `get_account_balances`, `get_account_transactions`, `get_card_bills`, `get_loan_status`, **`get_population_stat`**(출처 동반)
 - **통계 앵커링**: "65–69 권장 비상자금 6개월(KOSIS) 대비 부족" 식 근거
 - **지불의향(`medical_willingness`) + 제약 개인화**: '투자 보류' → 리밸런싱 제안 제외
 - 다중 액션 카드 + 테스트 2개 (자산 트리거 종단 / 통계 도구)
