@@ -14,7 +14,7 @@
 8. [`08_MEMORY.md`](08_MEMORY.md) — 단기/장기 메모리, 개인화
 9. [`09_API_SPEC.md`](09_API_SPEC.md) — REST 엔드포인트
 10. [`10_SECURITY_PRIVACY.md`](10_SECURITY_PRIVACY.md) — 규제, capability 보안
-11. [`11_IMPLEMENTATION_ROADMAP.md`](11_IMPLEMENTATION_ROADMAP.md) — 수직 슬라이스 구현 계획
+11. [`11_IMPLEMENTATION_ROADMAP.md`](11_IMPLEMENTATION_ROADMAP.md) — MVP 마일스톤 구현 계획
 12. [`12_IMPLEMENTATION_CHECKLIST.md`](12_IMPLEMENTATION_CHECKLIST.md) — 문서 목표와 현재 코드 사이의 남은 구현 항목
 
 **Codex SDK / 에이전트 런타임을 건드리는 작업 전**: [`04_AGENT_RUNTIME.md`](04_AGENT_RUNTIME.md) → [`CODEX_ADAPTER.md`](CODEX_ADAPTER.md) → `external/codex-sdk/` 순으로 읽으세요.

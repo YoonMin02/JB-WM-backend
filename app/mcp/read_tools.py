@@ -45,6 +45,26 @@ TOOL_SPECS: dict[str, dict[str, Any]] = {
         "description": "Read loan status for the scoped customer.",
         "inputSchema": _schema({}),
     },
+    "get_account_balances": {
+        "description": "Read account balances and liquidity summary for the scoped customer.",
+        "inputSchema": _schema({}),
+    },
+    "get_account_transactions": {
+        "description": "Read recent normalized account transactions for the scoped customer.",
+        "inputSchema": _schema({}),
+    },
+    "get_card_bills": {
+        "description": "Read card bill summaries for the scoped customer.",
+        "inputSchema": _schema({}),
+    },
+    "get_loan_switch_precheck": {
+        "description": "Read loan-switch precheck mock result for the scoped customer.",
+        "inputSchema": _schema(
+            {
+                "loan_id": {"type": "string"},
+            }
+        ),
+    },
     "get_customer_memory": {
         "description": "Read long-term personalization memory for the scoped customer.",
         "inputSchema": _schema({}),
@@ -97,6 +117,14 @@ def call_read_tool(
         "get_asset_events": lambda: data_tools.get_asset_events(db, customer_id),
         "get_insurance_summary": lambda: data_tools.get_insurance_summary(db, customer_id),
         "get_loan_status": lambda: data_tools.get_loan_status(db, customer_id),
+        "get_account_balances": lambda: data_tools.get_account_balances(db, customer_id),
+        "get_account_transactions": lambda: data_tools.get_account_transactions(db, customer_id),
+        "get_card_bills": lambda: data_tools.get_card_bills(db, customer_id),
+        "get_loan_switch_precheck": lambda: data_tools.get_loan_switch_precheck(
+            db,
+            customer_id,
+            loan_id=args.get("loan_id"),
+        ),
         "get_customer_memory": lambda: data_tools.get_customer_memory(db, customer_id),
         "get_population_stat": lambda: _get_population_stat(db, customer_id, args),
         "search_policy_documents": lambda: search_policy_documents(

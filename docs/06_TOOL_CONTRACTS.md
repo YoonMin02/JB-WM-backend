@@ -12,9 +12,13 @@ flowchart LR
         T3[get_portfolio_summary]
         T4[get_insurance_summary]
         T5[get_loan_status]
-        T6[get_population_stat]
-        T7[search_policy_documents]
-        T8[get_customer_memory]
+        T6[get_account_balances]
+        T7[get_account_transactions]
+        T8[get_card_bills]
+        T9[get_loan_switch_precheck]
+        T10[get_population_stat]
+        T11[search_policy_documents]
+        T12[get_customer_memory]
     end
     subgraph Forbidden["에이전트에 존재하지 않는 것"]
         X1[book_hospital ✗]
@@ -106,7 +110,7 @@ agent tool은 provider 원문 응답을 그대로 노출하지 않고, [`APIs/AG
 용도:  현금흐름 리스크 계산
 ```
 
-### get_account_balances / get_account_transactions (planned)
+### get_account_balances / get_account_transactions
 ```
 입력:  { customer_id: str, from?: date, to?: date }
 출력:  정규화된 계좌 잔액·거래내역 요약 (APIs/AGENT_TOOL_MAPPING.md)
@@ -114,14 +118,14 @@ agent tool은 provider 원문 응답을 그대로 노출하지 않고, [`APIs/AG
 주의:  access_token, fintech_use_num, 계좌번호는 agent에 노출하지 않음
 ```
 
-### get_card_bills (planned)
+### get_card_bills
 ```
 입력:  { customer_id: str, from_month?: str, to_month?: str }
 출력:  정규화된 카드 청구 기본/상세 요약
 용도:  다음 달 결제 예정액, 의료비/고정비 카드 지출 감지
 ```
 
-### get_loan_switch_precheck (planned)
+### get_loan_switch_precheck
 ```
 입력:  { customer_id: str, loan_id: str }
 출력:  대출이동 사전조회 mock 결과 (상환 가능 여부, 중도상환수수료 등)

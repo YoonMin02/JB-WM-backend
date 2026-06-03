@@ -92,6 +92,10 @@ def test_mcp_read_tools_are_scoped_and_audited(db: Session):
     tools = {tool["name"] for tool in list_read_tools()}
     assert "get_health_data" in tools
     assert "get_customer_memory" in tools
+    assert "get_account_balances" in tools
+    assert "get_account_transactions" in tools
+    assert "get_card_bills" in tools
+    assert "get_loan_switch_precheck" in tools
     assert "search_policy_documents" in tools
     for forbidden in ("book_hospital", "submit_claim", "transfer_money", "change_portfolio"):
         assert forbidden not in tools
@@ -104,6 +108,14 @@ def test_mcp_read_tools_are_scoped_and_audited(db: Session):
         arguments={"customer_id": "malicious-other-customer"},
     )
     assert result["id"] == session.customer_id
+    transactions = call_read_tool(
+        db,
+        session_id=session.id,
+        customer_id=session.customer_id,
+        name="get_account_transactions",
+        arguments={},
+    )
+    assert transactions["spending_summary"]["record_count"] >= 90
 
     events = db.exec(select(AgentEvent).where(AgentEvent.session_id == session.id)).all()
     assert any(

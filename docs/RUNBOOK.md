@@ -189,9 +189,10 @@ grep "jbwm" /tmp/jbwm.log                                   # 우리 로그만
 source .venv/bin/activate
 pytest app/tests/ -v
 #   test_capability_no_execution_tools : 실행 도구 부재(권한 경계)
-#   test_slice1_insurance_approval_flow: 승인 흐름 종단
-#   test_slice2_asset_trigger_resilience: 자산 트리거 + 개인화(투자보류 제외)
-#   test_slice2_population_stat_tool   : 통계 도구(출처 동반)
+#   test_insurance_approval_flow       : 승인 흐름 종단
+#   test_asset_trigger_resilience      : 자산 트리거 + 개인화(투자보류 제외)
+#   test_mcp_read_tools_are_scoped_and_audited : MCP scope/audit
+#   test_jwt_and_customer_scope_guard  : JWT/customer scope
 ```
 
 ## 10. SDK 연결만 따로 점검

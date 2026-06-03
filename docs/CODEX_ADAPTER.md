@@ -150,7 +150,8 @@ config={
 ```
 
 `app.mcp.read_server`는 `get_customer_profile`, `get_health_data`, `get_portfolio_summary`,
-`get_asset_events`, `get_insurance_summary`, `get_loan_status`, `get_customer_memory`,
+`get_asset_events`, `get_insurance_summary`, `get_loan_status`, `get_account_balances`,
+`get_account_transactions`, `get_card_bills`, `get_loan_switch_precheck`, `get_customer_memory`,
 `get_population_stat`, `search_policy_documents`만 노출합니다. `customer_id`는 tool argument가
 아니라 서버 env로 스코핑하며, MCP tool call은 `AgentEvent(type="tool_call")`에 기록됩니다.
 

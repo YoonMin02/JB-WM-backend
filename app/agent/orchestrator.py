@@ -124,7 +124,7 @@ class Orchestrator:
             log_event(db, session.id, "execution", {"proposal_id": p.id, "auto": True})
 
         if needs:
-            # 첫 승인 대상 제안을 대기 상태로 (슬라이스 1: 단일 승인 흐름)
+            # MVP: 첫 승인 대상 제안을 대기 상태로 둔다 (단일 승인 흐름).
             primary = needs[0]
             session.pending_proposal_id = primary.id
             db.add(session)
@@ -195,7 +195,7 @@ class Orchestrator:
         return session
 
     def _touch_memory(self, db: Session, session: AgentSession) -> None:
-        """슬라이스 1: 최소 메모리 갱신 (존재 보장 + 타임스탬프)."""
+        """최소 메모리 갱신: 존재 보장 + 타임스탬프."""
         mem = db.get(CustomerMemory, session.customer_id)
         if mem is None:
             mem = CustomerMemory(customer_id=session.customer_id)

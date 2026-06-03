@@ -233,7 +233,7 @@ flowchart LR
 | Migration         | Alembic                              |
 | Reasoning         | Codex Python SDK + rule-based stub   |
 | Workflow          | Custom finite state machine (FSM)    |
-| Tool exposure     | read-only workspace + MCP (planned)  |
+| Tool exposure     | MCP read tools + read-only workspace |
 | Package manager   | uv                                   |
 | Testing           | pytest                               |
 
@@ -248,7 +248,7 @@ flowchart LR
 - **Migration — Alembic**: 코드의 모델이 바뀌면(컬럼 추가 등) 기존 데이터베이스 구조도 맞춰 바꿔야 한다. 그 변경을 버전별 스크립트로 기록하고 적용·되돌린다. *현재는 개발 단계라 테이블을 매번 새로 만드는 `create_all`을 쓰고 Alembic은 미사용. 운영에서 데이터를 보존한 채 구조를 바꾸려면 필요하다.*
 - **Reasoning — Codex SDK + rule-based stub**: 의도 분류·계획 생성을 수행하는 부분. Codex SDK는 OpenAI Codex 모델을 코드에서 호출하는 라이브러리, `stub`은 LLM 없이 고정 규칙으로 같은 인터페이스를 구현한 것. `REASONER` 설정으로 선택한다.
 - **Workflow — Custom finite state machine (FSM)**: 분석 세션이 지금 어느 단계(상태)에 있고 다음에 어디로 갈 수 있는지를 코드로 제한한다. → **외부 라이브러리가 아니라 우리가 직접 짠 코드**다. 엄밀히는 "설치하는 도구"가 아니라 아키텍처에 가깝다.
-- **Tool exposure — read-only workspace + MCP (planned)**: 에이전트(LLM)에게 어떤 데이터·기능을 줄지 정하는 방식. 정적 자료는 읽기 전용 파일로, 동적 데이터는 `MCP`(모델에 도구를 표준 프로토콜로 연결)로 노출한다. *MCP는 외부 표준이지만 현재 미구현(파일 방식 사용 중)* — 절반은 "구현 방식"이라 순수 라이브러리와 성격이 다르다.
+- **Tool exposure — MCP read tools + read-only workspace**: 에이전트(LLM)에게 어떤 데이터·기능을 줄지 정하는 방식. 동적 고객/통계 데이터는 `MCP` read tools로, 정적 자료는 읽기 전용 파일로 노출한다. 기본 workspace에는 민감 고객 JSON 스냅샷을 쓰지 않고 `context_manifest.json`과 `static_context/`만 둔다. 필요 시에만 `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true`로 fallback 스냅샷을 켠다.
 - **Package manager — uv**: 프로젝트가 필요로 하는 외부 라이브러리를 설치·버전 관리하고, 프로젝트 전용 격리 환경(가상환경)을 만든다.
 - **Testing — pytest**: 코드가 의도대로 동작하는지 자동 검증하는 테스트를 작성·실행하는 프레임워크. 예상 입력/출력을 적어두면 코드 변경 후 한 번에 회귀 확인한다. **런타임 구성요소가 아니라 개발 도구**다.
 
@@ -323,5 +323,5 @@ timeout 120s .venv/bin/python scripts/codex_smoke_test.py
 | 08 | MEMORY | 단기/장기 · 개인화 |
 | 09 | API_SPEC | REST 엔드포인트 |
 | 10 | SECURITY_PRIVACY | 규제 · capability 보안 |
-| 11 | IMPLEMENTATION_ROADMAP | 수직 슬라이스 |
+| 11 | IMPLEMENTATION_ROADMAP | MVP 마일스톤 |
 | — | CODEX_ADAPTER | Codex SDK 구체 연동 (실제 소스 기준) |

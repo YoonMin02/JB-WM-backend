@@ -2,8 +2,9 @@
 
 이 파일이 유일한 `openai_codex` import 지점이다 (agent_rules 불변식 5).
 - 샌드박스는 항상 read_only (capability 보안).
-- 고객 컨텍스트는 read-only 워크스페이스에 JSON 파일로 materialize 후 Codex가 읽는다.
-- 동적/실시간 도구가 필요하면 MCP 읽기 서버를 config로 등록 (슬라이스 1은 파일로 충분).
+- 동적 고객/통계 데이터는 MCP read tools로 제공한다.
+- read-only 워크스페이스에는 context_manifest와 정적 정책 문서를 둔다.
+- JSON 스냅샷은 CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true일 때만 fallback으로 생성한다.
 실제 SDK 사양은 docs/CODEX_ADAPTER.md, ~/codex/sdk/python 참고.
 """
 from __future__ import annotations
@@ -278,7 +279,8 @@ class CodexReasoner:
         prompt = (
             "등록된 MCP 읽기 도구로 고객 데이터를 조회한 뒤, 아래 신호로부터 고객의 통합 필요도를 평가하세요. "
             "최소한 get_customer_profile, get_health_data, get_insurance_summary, "
-            "get_portfolio_summary, get_asset_events, get_customer_memory를 확인하세요. "
+            "get_portfolio_summary, get_asset_events, get_account_balances, get_account_transactions, "
+            "get_card_bills, get_loan_status, get_customer_memory를 확인하세요. "
             "워크스페이스에는 기본적으로 민감 고객 JSON 스냅샷이 없고, context_manifest.json과 "
             "static_context만 있습니다. memory.json/population.json 같은 파일이 있다고 가정하지 마세요. "
             "단일 intent로 좁히지 말고 medical_cost_need, insurance_need, cashflow_need, "
@@ -293,7 +295,7 @@ class CodexReasoner:
         self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
     ) -> Plan:
         prompt = (
-            "등록된 MCP 읽기 도구로 건강·자산 통합 고객 데이터, 통계, 장기 메모리를 조회한 뒤 "
+            "등록된 MCP 읽기 도구로 건강·자산·계좌·거래·카드·대출 데이터, 통계, 장기 메모리를 조회한 뒤 "
             "통합 필요도 평가를 반영하여 "
             "액션 제안 계획을 만드세요. 판단 순서는 생애설계 필요성, 의료비, 보험, 현금흐름, "
             "자산방어, 투자전략 종합입니다. 외부 효과(예약·청구·구매·송금·포트폴리오 변경)가 있는 액션은 "

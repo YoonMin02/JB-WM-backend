@@ -115,7 +115,7 @@ flowchart LR
 | 어드바이저 | 담당 고객 모니터링, 제한적 개입 |
 | 운영자 | 규정·통계·정책 규칙 관리 (고객 데이터 직접 접근 최소화) |
 
-MVP: 세션 또는 JWT. 시크릿은 환경변수 ([ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)), 소스/문서에 하드코딩 금지.
+JWT 기반 인증/인가를 사용합니다. 시크릿은 환경변수 ([ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md)), 소스/문서에 하드코딩 금지.
 
 현재 구현:
 - `app/core/auth.py`가 HS256 JWT 생성/검증과 `Principal(role, customer_id)`를 제공한다.
