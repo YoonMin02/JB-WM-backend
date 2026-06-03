@@ -17,7 +17,7 @@ Customer 1명
   ├─ active holistic AgentSession 1개
   │    └─ Codex thread 1개
   ├─ CustomerMemory
-  ├─ Health / Insurance / Portfolio / Loans
+  ├─ Health / Insurance / Portfolio / Loans / Accounts / Transactions / CardBills
   └─ AgentMessage / AgentEvent
 ```
 
