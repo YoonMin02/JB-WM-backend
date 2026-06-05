@@ -2,18 +2,17 @@
 
 FastAPI REST 표면입니다. 프론트는 상태를 렌더링하고 고객 행동을 제출합니다. 유효 전이를 독자 추론하지 않습니다 ([03](03_STATE_MACHINE.md) 프론트엔드 계약).
 
-> 변경 시 이 문서를 갱신합니다. 모든 응답은 `locale`(ko/en)을 고려합니다.
+> 변경 시 이 문서를 갱신합니다. 현재 응답 문구는 주로 한국어이며, 다국어 응답 포맷은 후속 확장입니다.
 
 ## 엔드포인트 그룹
 
 | 그룹 | 용도 |
 |---|---|
 | `/health` | 서비스 헬스 체크 |
-| `/auth` | 인증·세션 |
 | `/customers` | 고객 프로필·도메인 데이터 조회 |
 | `/agent-sessions` | 에이전트 워크플로우 (상태·신호·승인) |
-| `/signals` | 이벤트/자연어 입력 주입 |
 | `/proposals` | ActionProposal 승인/거절/수정 |
+| `/customers/{id}/privacy` | 동의 철회·보유 데이터 파기 |
 
 ## Health
 
@@ -115,7 +114,8 @@ POST /customers/{id}/privacy/consents/{consent_id}/revoke
 
 ## 응답 패턴
 
-- 에러는 정규화된 형태: `{ "error": { "code", "message", "detail" } }`
+- FastAPI 기본 에러는 `{ "detail": ... }` 형태입니다.
+- Codex reasoner 에러는 `detail: { "error", "message" }` 형태로 정규화합니다.
 - 상태 머신 위반 요청은 `409 Conflict` + 허용 행동 안내
 - 입력 검증 실패는 `422`
 
@@ -128,3 +128,4 @@ POST /customers/{id}/privacy/consents/{consent_id}/revoke
 JWT Bearer 토큰을 사용합니다. 역할: `customer` / `advisor` / `operator` ([10](10_SECURITY_PRIVACY.md)).
 고객 역할은 자기 `customer_id`만 접근할 수 있고, advisor/operator는 담당/운영 범위 접근을 전제로 합니다.
 `local`/`dev` 환경에서 Authorization 헤더가 없으면 개발 편의를 위해 `operator` principal을 사용합니다.
+현재 REST 표면에는 별도 `/auth` 로그인/토큰 발급 엔드포인트가 없습니다. 실서비스에서는 외부 인증 또는 별도 인증 서버가 JWT를 발급하고, 백엔드는 Bearer 토큰 검증과 customer scope enforcement를 담당합니다.

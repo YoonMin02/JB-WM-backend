@@ -79,6 +79,10 @@ http://localhost:8000/docs
 | `health` | `get_health_data` | `healthrecord`, `healthevent` (consent 있는 것만) |
 | `insurance` | `get_insurance_summary` | `insurancepolicy`, `coverageitem` |
 | `loans` | `get_loan_status` | `loanaccount` |
+| `accounts` | `get_account_balances` | `accountbalance` |
+| `transactions` | `get_account_transactions` | `accounttransaction` |
+| `card_bills` | `get_card_bills` | `cardbill` |
+| `loan_switch_precheck` | `get_loan_switch_precheck` | `loanswitchprecheck` |
 | `portfolio` | `get_portfolio_summary` | `portfolioaccount`, `holding` |
 | `asset_events` | `get_asset_events` | `assetevent` |
 | `population` | `get_population_stat` | `populationstat` (② 통계, 출처 동반) |

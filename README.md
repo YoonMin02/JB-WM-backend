@@ -256,24 +256,26 @@ flowchart LR
 
 ---
 
-## 디렉토리 구조 (목표)
+## 디렉토리 구조 (현재)
 
 ```
 app/
 ├── main.py                  FastAPI 진입점
 ├── core/                    설정 · DB · 로깅 · 보안
 ├── api/                     라우트 · 의존성
-├── domains/                 customer · health · portfolio · insurance · loan
-├── agent/
-│   ├── runtime.py           AgentReasoner 포트 + Orchestrator
+├── models/                  customer · health · finance · insurance · memory · privacy · stats
+├── agent/                   AgentReasoner 포트 + Orchestrator + reasoner 구현
+│   ├── runtime.py           AgentReasoner 포트
+│   ├── orchestrator.py      FSM 실행 흐름 조율
 │   ├── codex_adapter.py     Codex SDK 구현 (유일한 SDK import 지점)
 │   ├── schemas.py           NeedAssessment / Plan / ActionProposal 구조화 스키마
-│   └── prompts.py
+│   └── stub_reasoner.py     테스트/데모용 결정론적 reasoner
 ├── state_machine/           states · transitions · guards
 ├── policy/                  리스크 규칙 · 승인 라우팅
 ├── executor/                결정론적 액션 실행 (LLM 미경유)
-├── memory/                  단기 / 장기 개인화
-├── tools/                   MCP 읽기 도구 (고객 · 통계 · 규정검색)
+├── mcp/                     stdio MCP 읽기 서버 · 도구 registry
+├── tools/                   내부 데이터 조회/정규화 함수
+├── privacy/                 동의 철회 · 보유기간 purge
 └── tests/
 ```
 
