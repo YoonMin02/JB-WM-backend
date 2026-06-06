@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import inspect as py_inspect
 import sys
 import types
 from datetime import timedelta
@@ -17,6 +16,9 @@ from sqlmodel.pool import StaticPool
 @pytest.fixture
 def db(monkeypatch):
     import app.core.database as database
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "reasoner", "stub")
 
     test_engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -39,7 +41,9 @@ def db(monkeypatch):
 def _customer_id(db: Session) -> str:
     from app.models.customer import Customer
 
-    return db.exec(select(Customer)).one().id
+    customer = db.exec(select(Customer).where(Customer.name == "김영자")).first()
+    assert customer is not None
+    return customer.id
 
 
 def _new_session(db: Session):
@@ -84,47 +88,33 @@ def test_jwt_and_customer_scope_guard(db: Session):
     assert route_exc.value.status_code == 403
 
 
-def test_mcp_read_tools_are_scoped_and_audited(db: Session):
-    from app.mcp.read_tools import call_read_tool, list_read_tools
-    from app.models.agent import AgentEvent
+def test_agent_context_pack_is_scoped_and_includes_session_history(db: Session):
+    from app.agent.context_builder import build_agent_context
+    from app.models.agent import AgentMessage
 
     session = _new_session(db)
-    tools = {tool["name"] for tool in list_read_tools()}
-    assert "get_health_data" in tools
-    assert "get_customer_memory" in tools
-    assert "get_account_balances" in tools
-    assert "get_account_transactions" in tools
-    assert "get_card_bills" in tools
-    assert "get_loan_switch_precheck" in tools
-    assert "search_policy_documents" in tools
-    for forbidden in ("book_hospital", "submit_claim", "transfer_money", "change_portfolio"):
-        assert forbidden not in tools
+    db.add(
+        AgentMessage(
+            session_id=session.id,
+            role="user",
+            content="앞으로 투자 위험은 낮게 봐줘",
+            meta={"source": "test"},
+        )
+    )
+    db.commit()
 
-    result = call_read_tool(
+    context = build_agent_context(
         db,
-        session_id=session.id,
-        customer_id=session.customer_id,
-        name="get_customer_profile",
-        arguments={"customer_id": "malicious-other-customer"},
+        session,
+        current_signal={"source": "event", "payload": {"kind": "portfolio_loss"}},
     )
-    assert result["id"] == session.customer_id
-    transactions = call_read_tool(
-        db,
-        session_id=session.id,
-        customer_id=session.customer_id,
-        name="get_account_transactions",
-        arguments={},
-    )
-    assert transactions["spending_summary"]["record_count"] >= 90
-
-    events = db.exec(select(AgentEvent).where(AgentEvent.session_id == session.id)).all()
-    assert any(
-        event.type == "tool_call"
-        and event.detail["via"] == "mcp"
-        and event.detail["tool"] == "get_customer_profile"
-        and "customer_id" not in event.detail["arguments"]
-        for event in events
-    )
+    assert context["customer_id"] == session.customer_id
+    assert context["profile"]["id"] == session.customer_id
+    assert context["transactions"]["spending_summary"]["record_count"] >= 90
+    assert context["agent_session"]["id"] == session.id
+    assert context["agent_session"]["current_signal"]["payload"]["kind"] == "portfolio_loss"
+    assert context["session_memory"]["recent_conversation"][0]["content"] == "앞으로 투자 위험은 낮게 봐줘"
+    assert "book_hospital" not in json.dumps(context, ensure_ascii=False)
 
 
 def test_health_data_requires_consent(db: Session):
@@ -226,7 +216,6 @@ def test_init_db_renames_active_intents_column(monkeypatch):
                     customer_id VARCHAR,
                     state VARCHAR,
                     active_intents JSON,
-                    agent_thread_id VARCHAR,
                     pending_proposal_id VARCHAR,
                     recent_context JSON,
                     failure_reason VARCHAR,
@@ -315,27 +304,49 @@ async def test_reject_flow(db: Session):
 async def test_asset_trigger_resilience(db: Session):
     from app.agent.orchestrator import Orchestrator
     from app.models.agent import ActionProposal
+    from app.tools.data_tools import get_portfolio_summary
 
     s = _new_session(db)
 
     r = await Orchestrator().handle_signal(db, s, "event", {"kind": "portfolio_loss"})
     assert r.state == "UserApproval"
-    assert r.active_needs["primary_need"] == "cashflow"
+    assert r.active_needs["primary_need"] == "investment_adjust"
     assert r.active_needs["needs"]["cashflow_need"] == "high"
     assert r.active_needs["needs"]["asset_defense_need"] == "high"
+    assert r.active_needs["needs"]["investment_adjust_need"] == "high"
 
     proposals = db.exec(select(ActionProposal).where(ActionProposal.session_id == r.id)).all()
     kinds = {p.kind: p for p in proposals}
 
     assert kinds["report"].status == "executed"
     assert kinds["cashflow_plan"].status == "executed"
+    assert kinds["rebalance_portfolio"].has_external_effect is True
+    assert kinds["rebalance_portfolio"].params["target_high_risk_weight"] == 0.45
     assert kinds["review_insurance"].has_external_effect is True
     assert kinds["review_insurance"].params["one_time_budget_krw"] == 1_500_000
     assert kinds["review_insurance"].params["monthly_budget_krw"] == 250_000
     assert kinds["cashflow_plan"].params["medical_budget_ratio"] == 0.08
-    assert "rebalance_portfolio" not in kinds
 
-    done = await Orchestrator().apply_decision(db, r, "approve")
+    r.pending_proposal_id = kinds["rebalance_portfolio"].id
+    db.add(r)
+    db.commit()
+    first = await Orchestrator().apply_decision(db, r, "approve")
+    assert first.state == "UserApproval"
+    assert get_portfolio_summary(db, r.customer_id)["high_risk_weight"] == 0.45
+
+    for proposal in db.exec(
+        select(ActionProposal).where(
+            ActionProposal.session_id == r.id,
+            ActionProposal.status == "proposed",
+            ActionProposal.has_external_effect == True,  # noqa: E712
+        )
+    ).all():
+        first.pending_proposal_id = proposal.id
+        db.add(first)
+        db.commit()
+        first = await Orchestrator().apply_decision(db, first, "approve")
+
+    done = first
     assert done.state == "Monitoring"
 
 
@@ -381,7 +392,9 @@ def test_customer_agent_session_is_reused(db: Session):
     customer_id = _customer_id(db)
     first = create_session(customer_id, db)
     second = create_session(customer_id, db)
+    third = create_session(customer_id, db, force_new=True)
     assert first["session_id"] == second["session_id"]
+    assert third["session_id"] != first["session_id"]
     assert first["customer_id"] == customer_id
     assert "active_needs" in first
     assert "active_intents" not in first
@@ -397,8 +410,34 @@ async def test_session_records_route(db: Session):
     records = get_records(result.id, db)
 
     assert len(records["messages"]) >= 3
-    assert records["need_assessments"][0]["primary_need"] == "cashflow"
+    assert records["need_assessments"][0]["primary_need"] == "investment_adjust"
     assert records["plans"][0]["proposal_ids"]
+
+
+def test_seed_has_demo_customers(db: Session):
+    from app.models.customer import Customer
+
+    customers = db.exec(select(Customer)).all()
+    assert len(customers) >= 10
+    assert any(customer.name == "김영자" for customer in customers)
+
+
+def test_seed_can_refresh_demo_customers_without_reset(db: Session):
+    from app.models.customer import Customer
+    from app.models.finance import AccountBalance, AccountTransaction
+    import app.seed as seed_mod
+
+    seed_mod.seed_if_empty()
+    seed_mod.seed_if_empty()
+
+    customers = db.exec(select(Customer)).all()
+    demo = db.exec(select(Customer).where(Customer.name == "박민수")).first()
+    assert len(customers) >= 10
+    assert demo is not None
+    accounts = db.exec(select(AccountBalance).where(AccountBalance.customer_id == demo.id)).all()
+    transactions = db.exec(select(AccountTransaction).where(AccountTransaction.customer_id == demo.id)).all()
+    assert accounts
+    assert len(transactions) >= 100
 
 
 def test_api_shaped_mock_data_has_100_plus_records(db: Session):
@@ -449,112 +488,29 @@ def test_financial_read_tools_hide_provider_identifiers(db: Session):
         assert hidden not in serialized
 
 
-def test_codex_workspace_minimizes_sensitive_snapshots(db: Session, monkeypatch, tmp_path):
-    from app.agent.codex_adapter import _mcp_config, _write_workspace
+def test_context_builder_injects_policy_docs_without_code_files(db: Session, monkeypatch, tmp_path):
+    from app.agent.context_builder import build_agent_context
     from app.core.config import settings
-    from app.tools.data_tools import build_context
 
-    monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
     policy_docs = tmp_path / "policy_docs"
     policy_docs.mkdir()
     (policy_docs / "boundary.md").write_text("read-only policy", encoding="utf-8")
     (policy_docs / "script.py").write_text("print('do not copy')", encoding="utf-8")
     monkeypatch.setattr(settings, "policy_docs_path", str(policy_docs))
-    ctx = build_context(db, _customer_id(db))
-    ctx["agent_session_id"] = "session-for-mcp"
-
-    workspace = _write_workspace(ctx)
-    mcp_config = _mcp_config(ctx)
-    files = {p.name for p in workspace.iterdir()}
-
-    assert "customer_id.json" not in files
-    assert "context_manifest.json" in files
-    assert "profile.json" not in files
-    assert "accounts.json" not in files
-    assert "transactions.json" not in files
-    assert "memory.json" not in files
-    assert not any(name.endswith(".py") for name in files)
-    assert (workspace / "static_context" / "boundary.md").exists()
-    assert not (workspace / "static_context" / "script.py").exists()
-    server = mcp_config["mcp_server_config"]["jbwm-read-tools"]
-    assert server["args"] == ["-m", "app.mcp.read_server"]
-    assert server["env"]["JBWM_MCP_CUSTOMER_ID"] == ctx["customer_id"]
-    assert server["env"]["JBWM_MCP_SESSION_ID"] == "session-for-mcp"
-    assert server["env"]["PYTHONPATH"].endswith("JB-WM-backend")
-    assert server["env"]["POLICY_DOCS_PATH"].endswith("policy_docs")
-
-    manifest = json.loads((workspace / "context_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["dynamic_data"] == "mcp_read_tools"
-    assert manifest["snapshots_included"] is False
-
-
-def test_codex_prompts_do_not_require_removed_snapshot_files():
-    from app.agent.codex_adapter import CodexReasoner
-
-    source = py_inspect.getsource(CodexReasoner.assess_need) + py_inspect.getsource(
-        CodexReasoner.generate_plan
-    )
-    assert "등록된 MCP 읽기 도구" in source
-    assert "population.json)," not in source
-    assert "memory.json:" not in source
-
-
-def test_codex_workspace_snapshot_fallback_can_be_enabled(db: Session, monkeypatch, tmp_path):
-    from app.agent.codex_adapter import _write_workspace
-    from app.core.config import settings
-    from app.tools.data_tools import build_context
-
-    monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
-    monkeypatch.setattr(settings, "codex_workspace_include_snapshots", True)
-
-    workspace = _write_workspace(build_context(db, _customer_id(db)))
-    files = {p.name for p in workspace.iterdir()}
-
-    assert "accounts.json" in files
-    assert "transactions.json" in files
-    assert "memory.json" in files
-    manifest = json.loads((workspace / "context_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["snapshots_included"] is True
-
-
-def test_codex_parse_error_is_normalized():
-    from app.agent.codex_adapter import CodexOutputError, _parse
-    from app.agent.schemas import NeedAssessment
-
-    with pytest.raises(CodexOutputError):
-        _parse("{not json", NeedAssessment)
-
-
-@pytest.mark.asyncio
-async def test_signal_route_normalizes_reasoner_errors(db: Session, monkeypatch):
-    from fastapi import HTTPException
-
-    from app.agent.codex_adapter import CodexUnavailable
-    import app.api.routes.sessions as sessions_route
-
-    class FailingOrchestrator:
-        async def handle_signal(self, db: Session, session, source: str, payload: dict):
-            raise CodexUnavailable("OAuth 세션을 찾을 수 없습니다.")
 
     session = _new_session(db)
-    monkeypatch.setattr(sessions_route, "Orchestrator", FailingOrchestrator)
+    context = build_agent_context(db, session)
+    policy_docs_context = context["policy_context"]
 
-    with pytest.raises(HTTPException) as exc:
-        await sessions_route.post_signal(
-            session.id,
-            sessions_route.SignalIn(source="event", payload={"kind": "portfolio_loss"}),
-            db,
-        )
-
-    assert exc.value.status_code == 503
-    assert exc.value.detail["error"] == "codex_unavailable"
-    assert "OAuth" in exc.value.detail["message"]
+    assert [doc["path"] for doc in policy_docs_context] == ["boundary.md"]
+    assert policy_docs_context[0]["content"] == "read-only policy"
+    assert "script.py" not in json.dumps(context, ensure_ascii=False)
 
 
 @pytest.mark.asyncio
-async def test_codex_adapter_starts_thread_read_only(monkeypatch, tmp_path):
-    from app.agent.codex_adapter import CodexReasoner
+async def test_pydantic_ai_reasoner_uses_structured_output(monkeypatch):
     from app.agent.schemas import NeedAssessment
+    from app.agent.pydantic_ai_reasoner import PydanticAIReasoner
     from app.core.config import settings
 
     captured: dict[str, object] = {}
@@ -563,12 +519,10 @@ async def test_codex_adapter_starts_thread_read_only(monkeypatch, tmp_path):
         read_only = "read_only"
 
     class FakeThread:
-        id = "thread-readonly"
-
-        async def run(self, prompt: str, output_schema: dict):
+        async def run(self, prompt: str, output_schema=None):
+            captured["prompt"] = prompt
+            captured["output_schema"] = output_schema
             return types.SimpleNamespace(
-                status="completed",
-                error=None,
                 final_response=json.dumps(
                     {
                         "medical_cost_need": "none",
@@ -578,65 +532,93 @@ async def test_codex_adapter_starts_thread_read_only(monkeypatch, tmp_path):
                         "investment_adjust_need": "low",
                         "life_plan_need": "none",
                         "primary_need": "cashflow",
-                        "confidence": 0.8,
-                        "rationale": "fake",
+                        "confidence": 0.82,
+                        "rationale": "테스트 구조화 출력",
                         "preference_update_only": False,
                         "no_action": False,
                         "clarifying_question": None,
                     }
-                ),
+                )
             )
 
     class FakeCodex:
         async def __aenter__(self):
+            captured["opened"] = True
             return self
 
         async def __aexit__(self, exc_type, exc, tb):
             return None
 
         async def thread_start(self, **kwargs):
-            captured.update(kwargs)
+            captured["thread_start"] = kwargs
             return FakeThread()
 
-    fake_module = types.SimpleNamespace(AsyncCodex=FakeCodex, Sandbox=FakeSandbox)
-    monkeypatch.setitem(sys.modules, "openai_codex", fake_module)
-    monkeypatch.setattr(settings, "codex_working_directory", str(tmp_path))
+    monkeypatch.setitem(
+        sys.modules,
+        "openai_codex",
+        types.SimpleNamespace(AsyncCodex=FakeCodex, Sandbox=FakeSandbox),
+    )
+    monkeypatch.setattr(settings, "codex_model", "gpt-test")
 
-    reasoner = CodexReasoner()
-    result = await reasoner._run(
-        "fake prompt",
-        {"customer_id": "customer-1", "profile": {"name": "김영자"}},
-        NeedAssessment,
+    result = await PydanticAIReasoner().assess_need(
+        {"source": "event", "payload": {"kind": "spending_spike"}},
+        {"customer_id": "customer-1", "session_memory": {"recent_conversation": []}},
     )
 
     assert result.primary_need == "cashflow"
-    assert captured["sandbox"] == FakeSandbox.read_only
-    assert "JB-WM-backend/app" not in str(captured["cwd"])
+    assert captured["thread_start"]["model"] == "gpt-test"
+    assert captured["thread_start"]["sandbox"] == FakeSandbox.read_only
+    assert captured["output_schema"] is None
+    assert "NeedAssessment JSON" in str(captured["prompt"])
+    assert "외부 도구" in str(captured["prompt"])
 
 
 @pytest.mark.asyncio
-async def test_customer_session_reuses_reasoner_thread_ref(db: Session):
+async def test_signal_route_normalizes_reasoner_errors(db: Session, monkeypatch):
+    from fastapi import HTTPException
+
+    from app.agent.errors import ReasonerUnavailable
+    import app.api.routes.sessions as sessions_route
+
+    class FailingOrchestrator:
+        async def handle_signal(self, db: Session, session, source: str, payload: dict):
+            raise ReasonerUnavailable("LLM provider unavailable")
+
+    session = _new_session(db)
+    monkeypatch.setattr(sessions_route, "Orchestrator", FailingOrchestrator)
+
+    with pytest.raises(HTTPException) as exc:
+        await sessions_route.post_signal(
+            session.id,
+            sessions_route.SignalIn(source="event", payload={"kind": "portfolio_loss"}),
+            db,
+    )
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail["error"] == "reasoner_unavailable"
+    assert "LLM provider" in exc.value.detail["message"]
+    db.refresh(session)
+    assert session.state == "Monitoring"
+    assert "LLM provider" in (session.failure_reason or "")
+
+
+@pytest.mark.asyncio
+async def test_customer_session_reinjects_context_history(db: Session):
     from app.agent.orchestrator import Orchestrator
     from app.agent.schemas import NeedAssessment, Plan
 
     class RecordingReasoner:
         def __init__(self) -> None:
-            self.last_thread_id: str | None = None
-            self.calls: list[tuple[str, str | None]] = []
+            self.calls: list[tuple[str, str, int]] = []
 
-        async def start_session(self, customer_id: str, ctx: dict) -> str:
-            self.calls.append(("start", None))
-            self.last_thread_id = f"thread-{customer_id}"
-            return self.last_thread_id
-
-        async def resume_session(self, session_ref: str) -> str:
-            self.calls.append(("resume", session_ref))
-            self.last_thread_id = session_ref
-            return session_ref
-
-        async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
-            self.calls.append(("assess", session_ref))
-            self.last_thread_id = session_ref
+        async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
+            self.calls.append(
+                (
+                    "assess",
+                    signal["payload"]["kind"],
+                    len(ctx["session_memory"]["recent_conversation"]),
+                )
+            )
             return NeedAssessment(
                 primary_need="cashflow",
                 cashflow_need="high",
@@ -650,10 +632,14 @@ async def test_customer_session_reuses_reasoner_thread_ref(db: Session):
             assessment: NeedAssessment,
             ctx: dict,
             memory: dict,
-            session_ref: str | None = None,
         ) -> Plan:
-            self.calls.append(("plan", session_ref))
-            self.last_thread_id = session_ref
+            self.calls.append(
+                (
+                    "plan",
+                    assessment.primary_need,
+                    len(ctx["session_memory"]["recent_conversation"]),
+                )
+            )
             return Plan(explanation="제안 없음", assessment=assessment)
 
     reasoner = RecordingReasoner()
@@ -662,16 +648,14 @@ async def test_customer_session_reuses_reasoner_thread_ref(db: Session):
 
     first = await orchestrator.handle_signal(db, session, "event", {"kind": "portfolio_loss"})
     assert first.state == "Monitoring"
-    assert first.agent_thread_id == f"thread-{first.customer_id}"
+    assert first.pending_proposal_id is None
 
     second = await orchestrator.handle_signal(db, first, "event", {"kind": "spending_spike"})
     assert second.state == "Monitoring"
-    assert second.agent_thread_id == f"thread-{first.customer_id}"
+    assert second.pending_proposal_id is None
     assert reasoner.calls == [
-        ("start", None),
-        ("assess", f"thread-{first.customer_id}"),
-        ("plan", f"thread-{first.customer_id}"),
-        ("resume", f"thread-{first.customer_id}"),
-        ("assess", f"thread-{first.customer_id}"),
-        ("plan", f"thread-{first.customer_id}"),
+        ("assess", "portfolio_loss", 1),
+        ("plan", "cashflow", 1),
+        ("assess", "spending_spike", 4),
+        ("plan", "cashflow", 4),
     ]

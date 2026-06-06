@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart LR
-    R[LLM 에이전트<br/>read-only sandbox] -->|제안만| P[ActionProposal]
+    R[LLM 에이전트<br/>context-only judgment] -->|제안만| P[ActionProposal]
     P --> POL[Policy + 고객 승인]
     POL -->|승인 이벤트| EX[Executor<br/>자격증명 보유]
     EX --> X[(실제 실행)]
@@ -18,7 +18,7 @@ flowchart LR
 | 원칙 | 구현 |
 |---|---|
 | 에이전트는 실행 권한이 없다 | 실행 도구를 도구 목록에서 제외 ([06](06_TOOL_CONTRACTS.md)) |
-| 에이전트는 쓰기를 못 한다 | `Sandbox.read_only` + 읽기 전용 MCP |
+| 에이전트는 쓰기를 못 한다 | DB/file/external execution access를 주지 않고 context pack만 제공 |
 | 승인은 액션 1건 스코핑 | `ApprovalDecision`이 `proposal_id`에 종속 ([05](05_DATA_MODEL.md)) |
 | 실행은 LLM을 거치지 않는다 | 승인 이벤트 → Executor 직행 ([07](07_ACTION_EXECUTION.md)) |
 | 프롬프트 인젝션 내성 | 인젝션이 성공해도 실행 도구가 없어 무해 |
@@ -102,9 +102,8 @@ flowchart LR
 
 ## 3. 데이터 격리
 
-- 에이전트 워크스페이스에는 기본적으로 **민감 고객 스냅샷을 두지 않고** `context_manifest.json`과
-  정적 규정 파일만 둔다. fallback 스냅샷을 켜더라도 현재 고객 데이터만 허용하며 다른 고객 데이터는 금지.
-- MCP 도구는 인증 주체의 `customer_id`로 스코핑한다.
+- LLM에는 임의 파일/DB 접근을 주지 않고, backend가 만든 현재 고객 context pack만 제공한다.
+- backend read function은 인증 주체의 `customer_id`로 스코핑한다.
 - `get_all_*` 같은 광범위 접근 금지.
 
 ## 4. 인증 / 인가
@@ -145,7 +144,7 @@ Signal → NeedAssessment(rationale) → Plan(explanation) → ApprovalDecision(
 ## 7. 비밀 관리
 
 - `.env` (gitignore). `.env.example`만 커밋.
-- Codex 인증은 OAuth 세션(`codex login`) 기반, API 키 하드코딩 불필요 ([CODEX_ADAPTER.md](CODEX_ADAPTER.md)).
+- Codex SDK 인증은 서버의 `codex login` OAuth 세션을 사용한다. 인증 토큰은 소스/문서에 하드코딩하지 않는다.
 
 ## MVP에서 보여줄 것
 

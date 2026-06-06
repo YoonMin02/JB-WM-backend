@@ -37,6 +37,9 @@ body: { "source": "event" | "user_utterance", "payload": {...} }
 POST /customers/{customer_id}/agent-sessions
 201  { "session_id", "state": "Monitoring" }
 
+POST /customers/{customer_id}/agent-sessions?force_new=true
+201  { "session_id", "state": "Monitoring" }  # 데모/새 시작용 신규 세션 강제 생성
+
 GET  /agent-sessions/{session_id}
 200  {
        "session_id", "customer_id",
@@ -74,7 +77,7 @@ GET  /agent-sessions/{session_id}/records
 
 ```
 GET  /agent-sessions/{session_id}/proposals
-200  { "proposals": [{ "id", "kind", "summary", "has_external_effect", "status" }] }
+200  { "proposals": [{ "id", "kind", "summary", "has_external_effect", "status", "rationale", "params" }] }
 
 POST /proposals/{proposal_id}/approve
 200  { ...Session }
@@ -89,9 +92,9 @@ body: { "note": "투자는 빼고 보험만" }
 
 - 승인은 **해당 proposal 1건에만** 적용됩니다 ([07](07_ACTION_EXECUTION.md)).
 - 승인 시 백엔드 Executor가 실행하며, **LLM을 거치지 않습니다.**
-- 현재 MVP는 승인/거절/수정 처리 후 최종 `Session` 객체를 반환합니다.
-- 승인 후 상태는 `ExecuteAction → VerifyResult → UpdateMemory → Monitoring`까지 서버에서 완료한 뒤 반환합니다. 중간 상태는 `AgentEvent` 타임라인에서 확인합니다.
-- 승인 대기 proposal은 현재 `pending_proposal_id` 단일 큐입니다. 다중 승인 큐는 후속 확장입니다.
+- 현재 MVP는 승인/거절/수정 처리 후 `Session` 객체를 반환합니다.
+- 한 세션에 승인 필요 proposal이 여러 개 있으면 프론트는 모두 표시할 수 있습니다. 백엔드는 proposal별 승인 요청을 받으며, 승인된 proposal 1건만 실행합니다.
+- 승인 후 아직 남은 외부효과 proposal이 있으면 상태는 다시 `UserApproval`로 돌아가고, 모두 처리되면 `ExecuteAction → VerifyResult → UpdateMemory → Monitoring`까지 서버에서 완료합니다. 중간 상태는 `AgentEvent` 타임라인에서 확인합니다.
 
 ## Customers (도메인 데이터)
 
@@ -106,16 +109,18 @@ GET /customers/{id}/transactions     → 계좌 거래/지출 요약
 GET /customers/{id}/card-bills       → 카드 청구 요약
 GET /customers/{id}/loan-switch-precheck → 대출이동 사전조회 mock
 GET /customers/{id}/memory           → 장기 메모리 (성향·선호)
+GET /customers/{id}/detail-snapshot  → 프론트 상세 보기용 API body-shaped mock 원천값
 POST /customers/{id}/privacy/consents/{consent_id}/revoke
                                       → 동의 철회 + 연결 건강/의료 문서 파기
 ```
 
-> 이 엔드포인트들은 프론트 표시용입니다. **에이전트는 이 REST가 아니라 MCP 읽기 도구로** 같은 데이터에 접근합니다 ([06](06_TOOL_CONTRACTS.md)).
+> 이 엔드포인트들은 프론트 표시용입니다. 에이전트 판단에는 backend read function과 ContextBuilder가 같은 데이터를 정규화해 제공합니다 ([06](06_TOOL_CONTRACTS.md)).
+> `detail-snapshot`은 데모 UI에서 `docs/APIs/`의 응답 body shape를 확인하기 위한 원천 mock 표시용입니다. LLM context에는 provider 식별자를 계속 숨깁니다.
 
 ## 응답 패턴
 
 - FastAPI 기본 에러는 `{ "detail": ... }` 형태입니다.
-- Codex reasoner 에러는 `detail: { "error", "message" }` 형태로 정규화합니다.
+- Reasoner 에러는 `detail: { "error", "message" }` 형태로 정규화합니다.
 - 상태 머신 위반 요청은 `409 Conflict` + 허용 행동 안내
 - 입력 검증 실패는 `422`
 

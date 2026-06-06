@@ -38,6 +38,8 @@ def list_proposals(
                 "kind": p.kind,
                 "summary": p.summary,
                 "has_external_effect": p.has_external_effect,
+                "rationale": p.rationale,
+                "params": p.params,
                 "status": p.status,
             }
             for p in rows
@@ -64,17 +66,21 @@ async def _decide(
         raise HTTPException(404, "세션을 찾을 수 없습니다.")
     if principal is not None:
         _authorize(principal, s.customer_id)
-    if s.pending_proposal_id != proposal_id:
-        raise HTTPException(409, "이 제안은 현재 승인 대기 중이 아닙니다.")
+    if p.status != "proposed":
+        raise HTTPException(409, "이미 처리된 제안입니다.")
+    if s.state != "UserApproval":
+        raise HTTPException(409, f"승인 가능한 세션 상태가 아닙니다: {s.state}")
     from app.models.agent import ApprovalDecision
 
     db.add(ApprovalDecision(proposal_id=proposal_id, decision=decision, note=note))
+    s.pending_proposal_id = proposal_id
+    db.add(s)
     db.commit()
-    from app.agent.codex_adapter import CodexRateLimited, CodexReasoningError
+    from app.agent.errors import ReasonerError, ReasonerRateLimited
 
     try:
         s = await Orchestrator().apply_decision(db, s, decision, note)
-    except (CodexRateLimited, CodexReasoningError) as e:
+    except (ReasonerRateLimited, ReasonerError) as e:
         raise reasoner_http_exception(e) from e
     except ValueError as e:
         raise HTTPException(409, str(e)) from e

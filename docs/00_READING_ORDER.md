@@ -16,14 +16,11 @@
 10. [`10_SECURITY_PRIVACY.md`](10_SECURITY_PRIVACY.md) — 규제, capability 보안
 11. [`11_IMPLEMENTATION_ROADMAP.md`](11_IMPLEMENTATION_ROADMAP.md) — MVP 마일스톤 구현 계획
 12. [`12_IMPLEMENTATION_CHECKLIST.md`](12_IMPLEMENTATION_CHECKLIST.md) — 문서 목표와 현재 코드 사이의 남은 구현 항목
-
-**Codex SDK / 에이전트 런타임을 건드리는 작업 전**: [`04_AGENT_RUNTIME.md`](04_AGENT_RUNTIME.md) → [`CODEX_ADAPTER.md`](CODEX_ADAPTER.md) → `external/codex-sdk/` 순으로 읽으세요.
+13. [`13_LLM_DECISION_CONTEXT.md`](13_LLM_DECISION_CONTEXT.md) — LLM 판단 컨텍스트, memory/compact, 정책 문서 설계
 
 참고 자료 (번호 없음, 필요 시):
-- [`CODEX_ADAPTER.md`](CODEX_ADAPTER.md) — Codex SDK 구체 연동 (실제 `~/codex/sdk/python` 기준)
 - [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) — 환경변수
 - [`APIs/`](APIs/) — 외부 API 원문 shape + 내부 adapter/agent tool 매핑 (MVP는 mock)
-- `external/codex-sdk/` — 공식 SDK 문서 스냅샷
 
 ## 용어집 (Glossary)
 
@@ -65,16 +62,16 @@
 | **Memory (단기)** | 진행 중 task, 승인 대기, 최근 대화 |
 | **Memory (장기)** | 고객 성향·선호·제약·지불의향 (개인화) |
 | **AgentReasoner** | 추론 백엔드의 공급자 무관 인터페이스 (포트) |
-| **Codex 어댑터** | `AgentReasoner`의 Codex SDK 구현 |
+| **PydanticAIReasoner** | `AgentReasoner`의 실제 LLM 구조화 출력 구현 |
 | **이중 capability 경계** | ① 실행 경계(실행 권한 없음) ② 의료 경계(의료 권고 생성 안 함). 프롬프트 가드레일과 대비 |
 
 ### 데이터 3분류 (자세히는 02, 06)
 
 | 분류 | 예시 | 접근 |
 |---|---|---|
-| ① 고객 개인 데이터 | 포트폴리오·건강·보험·대출 | MCP 읽기 도구 (per-customer 스코핑) |
-| ② 통계/기준 데이터 | 연령대별 자산·위험률·생명표 | 파라미터 쿼리 도구 (≠ RAG) |
-| ③ 비정형 텍스트 | 약관·내규·규정 | 파일 읽기 (MVP) → RAG (나중) |
+| ① 고객 개인 데이터 | 포트폴리오·건강·보험·대출 | backend read function → context pack |
+| ② 통계/기준 데이터 | 연령대별 자산·위험률·생명표 | 파라미터 쿼리/정규화 함수 |
+| ③ 비정형 텍스트 | 약관·내규·규정 | `policy_docs/` 주입 (MVP) → RAG (나중) |
 
 ## 문서 유지 규칙
 
@@ -83,4 +80,4 @@
 - 도구 변경 → `06_TOOL_CONTRACTS.md`
 - 상태 전이 변경 → `03_STATE_MACHINE.md`
 - 환경변수 변경 → `ENVIRONMENT_VARIABLES.md`
-- Codex SDK 연동 변경 → `04_AGENT_RUNTIME.md` + `CODEX_ADAPTER.md`
+- LLM 판단/컨텍스트 변경 → `04_AGENT_RUNTIME.md` + `13_LLM_DECISION_CONTEXT.md`

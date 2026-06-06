@@ -32,8 +32,8 @@ Monitoring → (mock 신호: 혈압상승) → SignalDetected → AssessNeed(ins
 2. DB 연결 + 핵심 모델 (Customer, Health*, Insurance*, AgentSession, ActionProposal)
 3. mock 시드 데이터 1명 (김영자, 68세)
 4. 상태머신 골격 (전이 + 가드)
-5. `AgentReasoner` 포트 + **Codex 어댑터** (read-only sandbox)
-6. MCP 읽기 도구: `get_health_data`, `get_insurance_summary`, `get_customer_memory`
+5. `AgentReasoner` 포트 + **PydanticAIReasoner**
+6. ContextBuilder + backend read functions: `get_health_data`, `get_insurance_summary`, `get_customer_memory`
 7. Orchestrator: 신호 → 의도추론 → 계획 → RiskCheck
 8. Policy Engine + Executor (mock 청구서류 핸들러)
 9. API: 세션 생성, 신호 주입, 세션 조회, proposal 승인

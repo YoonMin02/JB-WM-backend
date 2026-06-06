@@ -9,6 +9,7 @@ from app.agent.orchestrator import Orchestrator
 from app.api.deps import current_principal, db_session
 from app.api.errors import reasoner_http_exception
 from app.core.auth import Principal, require_customer_access
+from app.models.base import utcnow
 from app.models.agent import (
     ActionProposal,
     AgentEvent,
@@ -19,6 +20,7 @@ from app.models.agent import (
 )
 from app.models.customer import Customer
 from app.state_machine.states import State, allowed_actions
+from app.state_machine.machine import transition
 
 router = APIRouter(tags=["agent-sessions"])
 
@@ -62,17 +64,19 @@ def create_session(
     customer_id: str,
     db: Session = Depends(db_session),
     principal: Principal = Depends(current_principal),
+    force_new: bool = False,
 ) -> dict:
     if not db.get(Customer, customer_id):
         raise HTTPException(404, "고객을 찾을 수 없습니다.")
     _authorize(principal, customer_id)
-    existing = db.exec(
-        select(AgentSession)
-        .where(AgentSession.customer_id == customer_id)
-        .order_by(AgentSession.created_at.desc())
-    ).first()
-    if existing:
-        return serialize_session(db, existing)
+    if not force_new:
+        existing = db.exec(
+            select(AgentSession)
+            .where(AgentSession.customer_id == customer_id)
+            .order_by(AgentSession.created_at.desc())
+        ).first()
+        if existing:
+            return serialize_session(db, existing)
     s = AgentSession(customer_id=customer_id, state=State.MONITORING)
     db.add(s)
     db.commit()
@@ -172,7 +176,7 @@ async def post_signal(
     db: Session = Depends(db_session),
     principal: Principal = Depends(current_principal),
 ) -> dict:
-    from app.agent.codex_adapter import CodexRateLimited, CodexReasoningError
+    from app.agent.errors import ReasonerError, ReasonerRateLimited
 
     s = db.get(AgentSession, session_id)
     if not s:
@@ -182,6 +186,22 @@ async def post_signal(
         raise HTTPException(409, f"신호는 Monitoring 상태에서만 받습니다 (현재: {s.state}).")
     try:
         s = await Orchestrator().handle_signal(db, s, body.source, body.payload)
-    except (CodexRateLimited, CodexReasoningError) as e:
+    except (ReasonerRateLimited, ReasonerError) as e:
+        _recover_reasoner_failure(db, s, e)
         raise reasoner_http_exception(e) from e
     return serialize_session(db, s)
+
+
+def _recover_reasoner_failure(db: Session, session: AgentSession, error: Exception) -> None:
+    """Reasoner 실패 후 세션을 재시도 가능한 Monitoring 상태로 되돌린다."""
+    db.refresh(session)
+    session.failure_reason = str(error)
+    session.updated_at = utcnow()
+    db.add(session)
+    db.commit()
+    if session.state not in {State.FAILED, State.UPDATE_MEMORY, State.MONITORING}:
+        transition(db, session, State.FAILED, detail={"error": str(error)})
+    if session.state == State.FAILED:
+        transition(db, session, State.UPDATE_MEMORY, detail={"reason": "reasoner_failure"})
+    if session.state == State.UPDATE_MEMORY:
+        transition(db, session, State.MONITORING, detail={"reason": "reasoner_failure"})

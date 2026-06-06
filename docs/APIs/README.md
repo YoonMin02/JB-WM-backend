@@ -17,7 +17,7 @@ MVP에서는 외부망 호출을 하지 않습니다. 각 원문 API 명세의 b
 
 - 원문 API 스펙은 provider별 계약을 이해하기 위한 참고 자료로 보존합니다.
 - 백엔드 도메인 로직은 provider 원문 필드에 직접 의존하지 않고, 내부 정규화 모델에 의존합니다.
-- Codex/agent에는 원문 응답을 그대로 주지 않습니다. 백엔드 read tool이 정규화하고 민감 필드를 제거한 결과만 제공합니다.
+- LLM/agent에는 원문 응답을 그대로 주지 않습니다. 백엔드 read function이 정규화하고 민감 필드를 제거한 결과만 제공합니다.
 - 실행 API는 agent tool에 노출하지 않습니다. 실행은 고객 승인 후 Executor만 수행합니다.
 - OAuth token, fintech_use_num, user_seq_no, 계좌번호, 증권번호, 카드 식별자, 개인실명번호는 agent에 직접 노출하지 않습니다.
 - 현재 문서는 실제 연동 약속이 아니라 **개발용 mock/adapter contract의 기준**입니다.

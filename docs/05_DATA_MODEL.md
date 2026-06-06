@@ -128,7 +128,7 @@ erDiagram
 
 > 건강 이벤트는 고객 제출(`source=self_reported`/진단), 자산 이벤트는 회사 보유 데이터 자동 감지. 둘 다 `SignalDetected`로 들어가 통합 회복탄력성 판단의 입력이 됩니다.
 
-> ① 데이터는 **MCP 읽기 도구**로만 에이전트에 노출됩니다. 직접 prompt 주입 금지. 어댑터 외부에서 접근 시 도구를 거칩니다.
+> ① 데이터는 backend read function과 ContextBuilder를 통해 정규화된 context pack으로만 LLM에 노출됩니다. 원문 API 응답과 민감 식별자는 직접 주입하지 않습니다.
 
 ## 메모리 & 개인화 ([08](08_MEMORY.md))
 
@@ -153,7 +153,6 @@ erDiagram
 | customer_id | uuid | FK |
 | state | str | 현재 FSM 상태 ([03](03_STATE_MACHINE.md)) |
 | active_needs | json | `primary_need`와 필요도별 level |
-| agent_thread_id | str | 추론 세션 참조 (어댑터 해석) |
 | pending_proposal_id | uuid | 승인 대기 중 ActionProposal |
 | recent_context | json | 최근 대화/진행상황 (단기) |
 | created_at, updated_at | datetime | |

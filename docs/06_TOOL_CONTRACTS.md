@@ -1,194 +1,86 @@
-# 06 · 도구 계약 (Tool Contracts)
+# 06 · Data And Tool Contracts
 
-에이전트에 노출하는 도구를 정의합니다. **핵심 불변식: 에이전트 도구는 읽기·분석·제안만 가능하고, 실행 권한은 없습니다.**
+에이전트가 판단에 사용하는 데이터 계약입니다. 현재 구조에서 LLM은 tool을 직접 실행하지 않습니다. Backend가 DB/API/mock adapter를 읽고 정규화한 context pack을 LLM 입력으로 제공합니다.
 
-## Capability 경계
+## Capability Boundary
 
 ```mermaid
 flowchart LR
-    subgraph Agent["에이전트가 가진 도구 (읽기/분석/제안만)"]
-        T1[get_customer_profile]
-        T2[get_health_data]
-        T3[get_portfolio_summary]
-        T4[get_insurance_summary]
-        T5[get_loan_status]
-        T6[get_account_balances]
-        T7[get_account_transactions]
-        T8[get_card_bills]
-        T9[get_loan_switch_precheck]
-        T10[get_population_stat]
-        T11[search_policy_documents]
-        T12[get_customer_memory]
-    end
-    subgraph Forbidden["에이전트에 존재하지 않는 것"]
-        X1[book_hospital ✗]
-        X2[submit_claim ✗]
-        X3[transfer_money ✗]
-        X4[change_portfolio ✗]
-    end
-    Agent --> PROP[ActionProposal 생성]
-    PROP --> EXEC[Executor만 실제 실행]
+    DB[(DB / mock data / external API adapters)] --> TOOLS[backend read functions]
+    TOOLS --> CTX[ContextBuilder]
+    CTX --> LLM[Reasoner]
+    LLM --> PROP[ActionProposal]
+    PROP --> POLICY[Policy Engine]
+    POLICY --> EXEC[Executor]
 ```
 
-실행 동사(`book_*`, `submit_*`, `transfer_*`, `change_*`)는 **도구 목록에 아예 없습니다.** 에이전트는 "병원 예약하자"는 **제안(ActionProposal)** 만 만들 수 있고, 실제 실행은 [07_ACTION_EXECUTION.md](07_ACTION_EXECUTION.md)의 Executor가 담당합니다.
+실행 동사(`book_*`, `submit_*`, `transfer_*`, `change_*`)는 LLM에 주지 않습니다. LLM은 `ActionProposal`을 만들고, 실제 실행은 승인 후 Executor가 수행합니다.
 
-## 노출 메커니즘 (Codex SDK 기준)
+## Backend Read Functions
 
-Codex SDK는 워크스페이스(파일시스템) 기반 에이전트이며 **MCP를 지원**합니다. 따라서:
+현재 데이터 조회/정규화 함수는 `app/tools/data_tools.py`에 있습니다.
 
-| 데이터 분류 | 노출 방식 | 샌드박스 |
-|---|---|---|
-| ① 고객 개인 (동적) | **MCP 읽기 도구 서버** (우리 백엔드가 제공) | 읽기 전용 도구 |
-| ② 통계/기준 | **MCP 읽기 도구** (파라미터 쿼리) | 읽기 전용 도구 |
-| ③ 규정·약관 (정적) | **read-only 워크스페이스 파일** | `Sandbox.read_only` |
+| 함수 | 목적 |
+|---|---|
+| `build_context` | 고객 판단용 기본 context pack |
+| `get_customer_profile` | 기본 고객 정보 |
+| `get_health_data` | 동의된 건강 기록과 건강 이벤트 |
+| `get_insurance_summary` | 보험 목록, 보장, 보장 공백 |
+| `get_portfolio_summary` | 자산 배분, 총자산, 위험 비중 |
+| `get_asset_events` | 포트폴리오 손실, 소비 급증 등 자산 이벤트 |
+| `get_account_balances` | 계좌 잔액 정규화 |
+| `get_account_transactions` | 거래내역/지출 요약 |
+| `get_card_bills` | 카드 청구 요약 |
+| `get_loan_status` | 대출 현황 |
+| `get_loan_switch_precheck` | 대출이동 사전조회 mock |
+| `get_customer_memory` | 장기 선호/제약/지불의향 |
+| `get_population_stat` | 통계 기준값 |
 
-> 에이전트 thread는 항상 `Sandbox.read_only`로 시작합니다. 기본 워크스페이스에는
-> `context_manifest.json`과 정적 규정 파일만 두고, 동적 고객 데이터는 MCP read tools로 읽습니다.
-> `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=true`일 때만 제한된 JSON 스냅샷 fallback을 생성합니다.
-> 다른 고객 데이터는 워크스페이스에 두지 않습니다 (격리). 자세히는 [CODEX_ADAPTER.md](CODEX_ADAPTER.md).
+외부 API 원문 request/response shape는 [`APIs/`](APIs/)에 보관합니다. MVP에서는 실제 외부 API 호출 대신 이 shape를 참고해 mock 데이터를 채우고, backend read function이 agent용 정규화 결과를 만듭니다.
 
-정적 규정/약관/반복 정책 문서는 `policy_docs/` 아래에 둡니다. Codex workspace에는 `.md`, `.txt`,
-`.json` 파일만 `static_context/`로 복사되며, 코드/실행 파일은 복사하지 않습니다.
+## ContextBuilder Contract
 
-현재 구현:
-- MCP stdio 서버: `python -m app.mcp.read_server`
-- tool registry: `app/mcp/read_tools.py`
-- Codex 등록: `CodexReasoner`가 `thread_start`/`thread_resume`의 `config.mcp_server_config`에
-  `jbwm-read-tools`를 추가
-- 고객 scope: `JBWM_MCP_CUSTOMER_ID` env로 고정. 모델이 tool argument에 `customer_id`를 넣어도 무시
-- 감사: `JBWM_MCP_SESSION_ID`가 있으면 모든 tool call을 `AgentEvent(type="tool_call")`로 저장
+`app/agent/context_builder.py`는 다음을 한 번에 묶습니다.
 
-## 도구 목록 (① 고객 개인)
-
-모든 고객 도구는 **`customer_id`로 스코핑**됩니다. `get_all_*` 같은 광범위 도구는 금지.
-
-외부 금융 API의 원문 request/response shape는 [`APIs/`](APIs/)에 보관합니다.
-MVP에서는 실제 외부 API를 호출하지 않고, 해당 shape를 기준으로 mock adapter를 만듭니다.
-agent tool은 provider 원문 응답을 그대로 노출하지 않고, [`APIs/AGENT_TOOL_MAPPING.md`](APIs/AGENT_TOOL_MAPPING.md)의
-정규화된 read tool 결과만 제공합니다.
-
-### get_customer_profile
-```
-입력:  { customer_id: str }
-출력:  { name, age_band, locale }
-용도:  기본 컨텍스트
+```text
+customer context
+session state
+recent conversation
+previous judgments/plans
+proposal approval history
+event timeline
+policy_docs excerpts
 ```
 
-### get_health_data
-```
-입력:  { customer_id: str, metric?: str, since?: date }
-출력:  { records: [{ source, metric, value, measured_at }], events: [{ kind, severity, detected_at }] }
-용도:  건강 상태·이벤트 확인
-주의:  consent 없는 데이터는 반환하지 않음 (10 참고)
-```
+LLM에 모든 DB row를 던지지 않습니다. 필요한 항목을 제한하고, 민감 식별자와 provider 내부 식별자는 제거합니다.
 
-### get_portfolio_summary
-```
-입력:  { customer_id: str }
-출력:  { total_value, allocation: [{ asset_type, risk_grade, weight }], high_risk_weight }
-용도:  자산 배분·위험도 분석
-```
+## Policy Documents
 
-### get_asset_events
-```
-입력:  { customer_id: str, since?: date }
-출력:  { events: [{ kind, severity, detected_at }] }   # portfolio_loss, spending_spike, repayment_pressure ...
-용도:  선제 감지된 자산 변동 확인 (능동성 메인 트리거 — 05 AssetEvent)
-```
+`policy_docs/`에는 회사 내규, 보험 검토 기준, 투자/리밸런싱 제한, 질병별 재무 대응 playbook 같은 문서를 둡니다.
 
-### get_insurance_summary
-```
-입력:  { customer_id: str }
-출력:  { policies: [{ type, coverages: [{ coverage_type, limit_amount, active }] }], gaps_hint }
-용도:  보장 범위·공백 분석
-```
+현재 ContextBuilder는 `.md`, `.txt` 파일만 읽고, 문서 수와 글자 수를 제한합니다.
 
-### get_loan_status
-```
-입력:  { customer_id: str }
-출력:  { loans: [{ balance, next_due_date, monthly_payment }], cashflow_risk_window }
-용도:  현금흐름 리스크 계산
-```
+정책 문서에 넣기 좋은 것:
 
-### get_account_balances / get_account_transactions
-```
-입력:  { customer_id: str, from?: date, to?: date }
-출력:  정규화된 계좌 잔액·거래내역 요약 (APIs/AGENT_TOOL_MAPPING.md)
-용도:  현금흐름, 유동성, 의료비/고정비 지출 감지
-주의:  access_token, fintech_use_num, 계좌번호는 agent에 노출하지 않음
-```
+- 의료 권고 금지 문구와 표현 금지 규칙
+- 보험 보장 공백 판단 기준
+- 대출/현금흐름 위험 판단 기준
+- 투자전략 조정의 기본 우선순위
+- 치매, 간암, 폐암 등 질병별 재무 시나리오 playbook
+- 회사 상품 권유 제한과 승인 필요 기준
 
-### get_card_bills
-```
-입력:  { customer_id: str, from_month?: str, to_month?: str }
-출력:  정규화된 카드 청구 기본/상세 요약
-용도:  다음 달 결제 예정액, 의료비/고정비 카드 지출 감지
-```
+## Data Exposure Rules
 
-### get_loan_switch_precheck
-```
-입력:  { customer_id: str, loan_id: str }
-출력:  대출이동 사전조회 mock 결과 (상환 가능 여부, 중도상환수수료 등)
-용도:  대환 가능성 참고. 실제 대환 실행은 Executor only
-```
+- 모든 고객 데이터는 인증된 customer/session scope에서만 조회합니다.
+- access token, 계좌번호, 카드 식별자, 외부 provider raw id는 LLM context에 넣지 않습니다.
+- 건강 데이터는 consent 없는 record를 제외합니다.
+- 통계는 출처와 기준일을 함께 유지합니다.
+- 큰 문서는 전문을 무제한 주입하지 않고, 정책 파일/요약/발췌 단위로 제한합니다.
 
-### get_customer_memory
-```
-입력:  { customer_id: str }
-출력:  {
-        medical_willingness,
-        medical_one_time_budget_krw,
-        monthly_medical_budget_krw,
-        medical_budget_ratio,
-        risk_preference,
-        hospital_preference,
-        investment_style,
-        constraints
-      }
-용도:  개인화 (계획 생성 시 반영, 지불의향 포함) — 08 참고
-```
+## Test Points
 
-> **의료 경계**: 어떤 도구도 의료 권고를 생성하지 않습니다. 건강·통계 도구는 *참고 정보*만 제공하며, 출력은 재무 대비·통계 인용·전문가 연결로 한정됩니다 ([10](10_SECURITY_PRIVACY.md)).
-
-## 도구 목록 (② 통계/기준)
-
-### get_population_stat
-```
-입력:  { age_band: str, metric: str }
-출력:  { value, source, as_of }
-용도:  "68세 평균 자산 대비…" 같은 근거 있는 비교
-예:    get_population_stat(age_band="65-69", metric="avg_assets")
-출처:  KOSIS, 가계금융복지조사, 보험개발원(KIDI), KNHANES (공개 데이터)
-```
-
-> 통계는 RAG가 아니라 **정형 쿼리**입니다 ([02](02_SYSTEM_ARCHITECTURE.md) 데이터 3분류 참고). 방대한 통계를 통째로 프롬프트에 넣지 않습니다.
-
-## 도구 목록 (③ 규정·약관 — 비정형)
-
-### search_policy_documents
-```
-입력:  { query: str, doc_type?: "policy"|"rule"|"product" }
-출력:  { excerpts: [{ heading, text, source }] }
-용도:  약관/내규 검색
-MVP:   read-only 워크스페이스 파일 키워드 검색
-나중:  벡터 RAG로 고도화
-```
-
-## 출력 도구 (제안 기록)
-
-### propose_action (개념)
-LLM이 실제로 호출하는 것은 도구라기보다 **구조화 출력**입니다 ([04](04_AGENT_RUNTIME.md) `Plan`/`ActionProposal`). 에이전트는 `ActionProposal`을 생성할 뿐 실행하지 않습니다. Orchestrator가 이를 받아 Policy/Executor로 보냅니다.
-
-## 도구 스코핑·검증 규칙
-
-- 모든 입력은 Pydantic으로 검증한다.
-- 모든 고객 도구는 인증된 사용자·고객·세션으로 스코핑한다.
-- 광범위/무제한 도구(`get_all_customer_data`, 임의 파일시스템 쓰기)는 노출하지 않는다.
-- 도구는 간결한 결과를 반환한다 (큰 문서 전체 반환 금지 — 발췌·요약).
-- 모든 도구 호출은 `AgentEvent`로 로깅한다 ([05](05_DATA_MODEL.md)).
-
-## 테스트 포인트
-
-- 입력 검증·스코핑 (다른 customer_id 접근 차단)
+- 실행 도구가 LLM 표면에 노출되지 않음
 - consent 없는 건강 데이터 미반환
-- 실행 도구가 에이전트 표면에 노출되지 않음 (capability 회귀 테스트)
+- provider 내부 식별자 제거
+- context pack에 최근 대화와 판단 기록 포함
+- policy 문서는 `.md`, `.txt`만 포함

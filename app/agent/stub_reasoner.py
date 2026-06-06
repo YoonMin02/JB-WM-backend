@@ -1,8 +1,4 @@
-"""StubReasoner — 결정론적 가짜 추론기.
-
-Codex 호출 없이 핵심 루프를 끝까지 돌리고 테스트하기 위한 구현.
-실제 추론은 CodexReasoner가 담당. 둘 다 동일한 AgentReasoner 포트를 구현한다.
-"""
+"""StubReasoner — 결정론적 가짜 추론기."""
 from __future__ import annotations
 
 from app.agent.schemas import ActionProposalSchema, NeedAssessment, Plan
@@ -13,20 +9,7 @@ def _format_krw(value: int | float) -> str:
 
 
 class StubReasoner:
-    def __init__(self) -> None:
-        self.last_thread_id: str | None = None
-
-    async def start_session(self, customer_id: str, ctx: dict) -> str:
-        self.last_thread_id = f"stub-thread-{customer_id}"
-        return self.last_thread_id
-
-    async def resume_session(self, session_ref: str) -> str:
-        self.last_thread_id = session_ref
-        return session_ref
-
-    async def assess_need(self, signal: dict, ctx: dict, session_ref: str | None = None) -> NeedAssessment:
-        if session_ref:
-            await self.resume_session(session_ref)
+    async def assess_need(self, signal: dict, ctx: dict) -> NeedAssessment:
         payload = signal.get("payload", {})
         kind = str(payload.get("kind", "")).lower()
         text = str(payload.get("text", "")).lower()
@@ -38,16 +21,20 @@ class StubReasoner:
             k in kind for k in ("portfolio_loss", "repayment", "spending", "income_drop")
         ) or any(w in text for w in ("지출", "상환", "손실"))
         if asset_signal:
+            investment_need = "high" if "portfolio_loss" in kind or "손실" in text else "mid"
             return NeedAssessment(
-                primary_need="cashflow",
+                primary_need="investment_adjust" if investment_need == "high" else "cashflow",
                 medical_cost_need="mid",
                 insurance_need="mid" if has_gap else "low",
                 cashflow_need="high",
                 asset_defense_need="high",
-                investment_adjust_need="low",
+                investment_adjust_need=investment_need,
                 life_plan_need="low",
                 confidence=0.84,
-                rationale="자산 변동(손실/현금흐름 압박)이 감지되어, 의료비 대비를 포함한 현금흐름 방어가 필요합니다.",
+                rationale=(
+                    "투자 손실/현금흐름 압박이 감지되어, 의료비 대비와 함께 "
+                    "고위험 비중 축소 중심의 투자전략 재점검이 필요합니다."
+                ),
             )
 
         # 건강 이벤트(혈압/수면/의료비) + 보험 공백 → 의료비/보험 필요도 상승
@@ -96,12 +83,8 @@ class StubReasoner:
             clarifying_question="어떤 부분을 먼저 봐드릴까요? (보험 / 현금흐름 / 투자)",
         )
 
-    async def generate_plan(
-        self, assessment: NeedAssessment, ctx: dict, memory: dict, session_ref: str | None = None
-    ) -> Plan:
-        if session_ref:
-            await self.resume_session(session_ref)
-        if assessment.cashflow_need in ("mid", "high") or assessment.asset_defense_need in ("mid", "high"):
+    async def generate_plan(self, assessment: NeedAssessment, ctx: dict, memory: dict) -> Plan:
+        if assessment.asset_defense_need in ("mid", "high") or assessment.investment_adjust_need in ("mid", "high"):
             return self._asset_defense_plan(assessment, ctx, memory)
         if assessment.insurance_need == "none" and assessment.medical_cost_need == "none":
             return Plan(assessment=assessment, explanation="실행 가능한 필요도가 낮아 제안을 생성하지 않았습니다.")
@@ -214,23 +197,39 @@ class StubReasoner:
                 )
             )
 
-        # 개인화: 투자 보류가 아니면 리밸런싱 제안(외부 효과). 보류면 제외.
+        # 투자 손실 신호에서는 고객의 '투자 보류' 제약을 신규 매수 금지가 아니라
+        # 고위험 노출 축소만 허용하는 안전 범위로 해석한다.
         explanation = (
             "자산 손실·현금흐름 압박을 통계 기준에 앵커해 대비책을 제안합니다. "
             f"지불의향={willingness}, 의료비 감내범위=일회성 {_format_krw(one_time_budget)}, "
             f"월 {_format_krw(monthly_budget)}, 현금흐름 {budget_ratio * 100:.0f}%."
         )
-        if not invest_hold:
-            proposals.append(
-                ActionProposalSchema(
-                    kind="rebalance_portfolio",
-                    summary="고위험 비중을 낮춘 포트폴리오 대안",
-                    has_external_effect=True,
-                    rationale="손실 노출 축소를 위한 리밸런싱.",
-                )
+        if invest_hold:
+            explanation += " 고객 제약 '투자 보류'는 신규 위험자산 확대 금지로 반영하고, 손실 방어용 축소안만 제안합니다."
+
+        rebalance = ActionProposalSchema(
+            kind="rebalance_portfolio",
+            summary="투자 손실 대응: 고위험 비중 70% → 45% 방어형 리밸런싱",
+            has_external_effect=True,
+            params={
+                "target_high_risk_weight": 0.45,
+                "target_low_risk_weight": 0.55,
+                "mode": "risk_reduction",
+            },
+            rationale="현재 고위험 비중이 높아 추가 손실 노출을 줄이는 투자전략 조정입니다. 고객 승인 전에는 실행하지 않습니다.",
+        )
+        # 승인 대기 1순위가 투자전략이 되도록 보험 점검보다 앞에 둔다.
+        insert_at = 2
+        proposals.insert(insert_at, rebalance)
+        proposals.append(
+            ActionProposalSchema(
+                kind="notify",
+                summary="담당 PB에게 방어형 투자전략 검토 요청",
+                has_external_effect=True,
+                params={"channel": "advisor_task", "topic": "portfolio_loss_defense"},
+                rationale="리밸런싱 실행 전 사람이 검토할 수 있도록 담당자에게 검토 태스크를 남깁니다.",
             )
-        else:
-            explanation += " (고객 제약 '투자 보류'에 따라 리밸런싱 제안은 제외)"
+        )
 
         # 의료 경계: 의료 권고가 아니라 '재무 대비 + 통계 참고'만. 처치 권고 없음.
         return Plan(proposals=proposals, explanation=explanation, assessment=assessment)

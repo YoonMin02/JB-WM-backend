@@ -1,7 +1,7 @@
 """읽기 전용 데이터 도구 (분류 ① 고객 개인 데이터).
 
 reasoner에 주입할 컨텍스트를 구성한다. 모두 customer_id로 스코핑된 읽기 전용.
-실제 배포에서는 이 함수들이 MCP 읽기 서버의 도구로 노출된다 (docs/06_TOOL_CONTRACTS).
+실제 배포에서는 이 함수들이 backend ContextBuilder를 통해 LLM context pack에 주입된다.
 실행 동사(book_*/submit_*/transfer_*)는 여기에 존재하지 않는다.
 """
 from __future__ import annotations
@@ -22,6 +22,7 @@ from app.models.finance import (
     PortfolioAccount,
 )
 from app.models.health import HealthEvent, HealthRecord
+from app.models.health import MedicalDocument
 from app.models.insurance import CoverageItem, InsurancePolicy
 from app.models.memory import CustomerMemory
 from app.models.stats import PopulationStat
@@ -37,14 +38,32 @@ def get_customer_profile(db: Session, customer_id: str) -> dict:
 def get_health_data(db: Session, customer_id: str) -> dict:
     records = db.exec(select(HealthRecord).where(HealthRecord.customer_id == customer_id)).all()
     events = db.exec(select(HealthEvent).where(HealthEvent.customer_id == customer_id)).all()
+    docs = db.exec(select(MedicalDocument).where(MedicalDocument.customer_id == customer_id)).all()
     return {
         # consent 있는 기록만 반환 (10_SECURITY_PRIVACY)
         "records": [
-            {"source": r.source, "metric": r.metric, "value": r.value}
+            {
+                "source": r.source,
+                "metric": r.metric,
+                "value": r.value,
+                "measured_at": r.measured_at.isoformat(),
+            }
             for r in records
             if r.consent_id
         ],
-        "events": [{"kind": e.kind, "severity": e.severity} for e in events],
+        "events": [
+            {"kind": e.kind, "severity": e.severity, "detected_at": e.detected_at.isoformat(), "raw_ref": e.raw_ref}
+            for e in events
+        ],
+        "documents": [
+            {
+                "doc_type": d.doc_type,
+                "issued_at": d.issued_at.isoformat() if d.issued_at else None,
+                "summary": d.summary,
+            }
+            for d in docs
+            if d.consent_id
+        ],
     }
 
 
@@ -61,7 +80,9 @@ def get_insurance_summary(db: Session, customer_id: str) -> dict:
                 covered_types.add(it.coverage_type)
         out.append(
             {
+                "product_name": p.product_name,
                 "type": p.policy_type,
+                "active": p.active,
                 "coverages": [
                     {"coverage_type": it.coverage_type, "limit": float(it.limit_amount), "active": it.active}
                     for it in items
@@ -69,7 +90,8 @@ def get_insurance_summary(db: Session, customer_id: str) -> dict:
             }
         )
     # 단순 공백 힌트: 심혈관 특약 미보유 시
-    gaps_hint = None if "심혈관특약" in covered_types else "심혈관 특약 없음"
+    has_cardio = "심혈관특약" in covered_types or "심혈관" in covered_types
+    gaps_hint = None if has_cardio else "심혈관 특약 없음"
     return {"policies": out, "gaps_hint": gaps_hint}
 
 
@@ -79,6 +101,7 @@ def get_loan_status(db: Session, customer_id: str) -> dict:
         "loans": [
             {
                 "balance": float(loan.balance),
+                "principal": float(loan.principal),
                 "next_due_date": loan.next_due_date.isoformat() if loan.next_due_date else None,
                 "monthly_payment": float(loan.monthly_payment),
             }
@@ -211,7 +234,7 @@ def get_portfolio_summary(db: Session, customer_id: str) -> dict:
     return {
         "total_value": total,
         "allocation": [
-            {"asset_type": h.asset_type, "risk_grade": h.risk_grade, "weight": h.weight}
+            {"asset_type": h.asset_type, "risk_grade": h.risk_grade, "amount_krw": int(h.amount), "weight": h.weight}
             for h in holdings
         ],
         "high_risk_weight": high_risk_weight,
@@ -258,6 +281,160 @@ def build_context(db: Session, customer_id: str) -> dict:
         "asset_events": get_asset_events(db, customer_id),
         "population": population,
         "memory": get_customer_memory(db, customer_id),
+    }
+
+
+def get_customer_detail_snapshot(db: Session, customer_id: str) -> dict:
+    """프론트 상세 보기용 mock 원문 스냅샷.
+
+    LLM context pack에는 provider 식별자를 숨기지만, 데모 UI에서는 `docs/APIs` body shape를
+    확인할 수 있도록 DB의 mock 원문 응답을 별도 endpoint로 노출한다.
+    """
+    policies = db.exec(select(InsurancePolicy).where(InsurancePolicy.customer_id == customer_id)).all()
+    accounts = db.exec(select(AccountBalance).where(AccountBalance.customer_id == customer_id)).all()
+    transactions = db.exec(
+        select(AccountTransaction)
+        .where(AccountTransaction.customer_id == customer_id)
+        .order_by(AccountTransaction.transacted_at.desc())
+    ).all()
+    cards = db.exec(select(CardBill).where(CardBill.customer_id == customer_id)).all()
+    loans = db.exec(select(LoanAccount).where(LoanAccount.customer_id == customer_id)).all()
+    prechecks = db.exec(select(LoanSwitchPrecheck).where(LoanSwitchPrecheck.customer_id == customer_id)).all()
+    health_records = db.exec(select(HealthRecord).where(HealthRecord.customer_id == customer_id)).all()
+    health_events = db.exec(select(HealthEvent).where(HealthEvent.customer_id == customer_id)).all()
+    medical_docs = db.exec(select(MedicalDocument).where(MedicalDocument.customer_id == customer_id)).all()
+    portfolio_accounts = db.exec(select(PortfolioAccount).where(PortfolioAccount.customer_id == customer_id)).all()
+    holdings: list[Holding] = []
+    for account in portfolio_accounts:
+        holdings += db.exec(select(Holding).where(Holding.account_id == account.id)).all()
+
+    insurance_details = []
+    for policy in policies:
+        coverages = db.exec(select(CoverageItem).where(CoverageItem.policy_id == policy.id)).all()
+        insurance_details.append(
+            {
+                "normalized": {
+                    "product_name": policy.product_name,
+                    "policy_type": policy.policy_type,
+                    "active": policy.active,
+                    "coverages": [
+                        {
+                            "coverage_type": item.coverage_type,
+                            "limit_amount": int(item.limit_amount),
+                            "active": item.active,
+                            "api_body": item.external_ref.get("api_body", {}),
+                        }
+                        for item in coverages
+                    ],
+                },
+                "api_body": policy.external_ref.get("api_body", {}),
+                "payment_api_body": policy.external_ref.get("payment_api_body", {}),
+            }
+        )
+
+    return {
+        "health": {
+            "records": [
+                {
+                    "source": row.source,
+                    "metric": row.metric,
+                    "value": row.value,
+                    "measured_at": row.measured_at.isoformat(),
+                }
+                for row in health_records
+                if row.consent_id
+            ],
+            "events": [
+                {
+                    "kind": row.kind,
+                    "severity": row.severity,
+                    "detected_at": row.detected_at.isoformat(),
+                    "raw_ref": row.raw_ref,
+                }
+                for row in health_events
+            ],
+            "medical_documents": [
+                {
+                    "doc_type": row.doc_type,
+                    "issued_at": row.issued_at.isoformat() if row.issued_at else None,
+                    "summary": row.summary,
+                }
+                for row in medical_docs
+                if row.consent_id
+            ],
+        },
+        "insurance": insurance_details,
+        "accounts": [
+            {
+                "normalized": {
+                    "bank_name": row.bank_name,
+                    "product_name": row.product_name,
+                    "account_type": row.account_type,
+                    "balance_krw": int(row.balance_krw),
+                    "available_krw": int(row.available_krw),
+                },
+                "api_body": row.external_ref.get("api_body", {}),
+            }
+            for row in accounts
+        ],
+        "transactions": {
+            "api_body": {
+                **(transactions[0].external_ref.get("api_body_header", {}) if transactions else {}),
+                "res_list": [row.external_ref.get("api_body", {}) for row in transactions[:80]],
+            }
+        },
+        "cards": [
+            {
+                "normalized": {
+                    "card_name": row.card_name,
+                    "charge_month": row.charge_month,
+                    "charge_krw": int(row.charge_krw),
+                    "settlement_date": row.settlement_date.isoformat() if row.settlement_date else None,
+                },
+                "card_list_api_body": row.external_ref.get("card_list_api_body", {}),
+                "card_issue_api_body": row.external_ref.get("card_issue_api_body", {}),
+                "bill_basic_api_body": row.external_ref.get("bill_basic_api_body", {}),
+                "bill_detail_api_body": row.external_ref.get("bill_detail_api_body", {}),
+            }
+            for row in cards
+        ],
+        "loans": [
+            {
+                "normalized": {
+                    "principal": int(row.principal),
+                    "balance": int(row.balance),
+                    "monthly_payment": int(row.monthly_payment),
+                    "next_due_date": row.next_due_date.isoformat() if row.next_due_date else None,
+                }
+            }
+            for row in loans
+        ],
+        "loan_switch_prechecks": [
+            {
+                "normalized": {
+                    "loan_id": row.loan_id,
+                    "repayment_available": row.repayment_available,
+                    "prepayment_penalty_krw": int(row.prepayment_penalty_krw),
+                    "interest_rate_type": row.interest_rate_type,
+                    "variation_cycle_months": row.variation_cycle_months,
+                    "fixed_rate_apply_months": row.fixed_rate_apply_months,
+                },
+                "api_body": row.external_ref.get("api_body", {}),
+            }
+            for row in prechecks
+        ],
+        "portfolio": {
+            "accounts": [{"id": row.id, "name": row.name} for row in portfolio_accounts],
+            "holdings": [
+                {
+                    "asset_type": row.asset_type,
+                    "risk_grade": row.risk_grade,
+                    "amount_krw": int(row.amount),
+                    "weight": row.weight,
+                }
+                for row in holdings
+            ],
+        },
     }
 
 

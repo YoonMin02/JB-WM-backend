@@ -1,0 +1,256 @@
+{
+  "customers": [
+    {
+      "name": "박민수",
+      "birth_date": "1964-04-18",
+      "age_band": "60-64",
+      "scenario": "portfolio_loss",
+      "health": {
+        "blood_pressure": { "systolic": 138, "diastolic": 86, "unit": "mmHg", "judgement": "경계" },
+        "ldl_cholesterol": { "value": 148, "unit": "mg/dL", "judgement": "높음" },
+        "sleep_score": { "score": 64, "trend_30d": -6 },
+        "event_ref": { "reason": "최근 30일 수면점수 하락과 LDL 상승, 투자 손실 스트레스 보고", "diagnosed_on": "2026-05-17", "treatment": "생활습관 개선 권고", "worsened_metric": "ldl_cholesterol" },
+        "document": { "doc_type": "checkup", "issued_at": "2026-05-17", "summary": { "diagnosis": "이상지질혈증 경계", "treatment_history": "2025년 스타틴 복약 상담 후 생활요법 유지", "follow_up": "3개월 후 재검" } }
+      },
+      "insurance": {
+        "gap_hint": null,
+        "policies": [
+          {
+            "product_name": "JB 더든든 실손의료보험",
+            "policy_type": "실손",
+            "active": true,
+            "policy_no_suffix": "PM01A00001",
+            "insu_type_code": "01",
+            "issue_date": "2018-03-12",
+            "exp_date": "2048-03-12",
+            "bank_code_std": "097",
+            "pay_cycle": "M",
+            "pay_due_date": "25",
+            "pay_end_date": "2038-03-12",
+            "pay_amt": 118000,
+            "pay_method": "자동이체",
+            "auto_pay_bank_code": "037",
+            "coverages": [
+              { "coverage_type": "실손", "limit_amount": 50000000, "active": true },
+              { "coverage_type": "심혈관", "limit_amount": 20000000, "active": true },
+              { "coverage_type": "입원일당", "limit_amount": 80000, "active": true }
+            ]
+          },
+          {
+            "product_name": "JB 암진단 플러스",
+            "policy_type": "건강",
+            "active": true,
+            "policy_no_suffix": "PM01B00002",
+            "insu_type_code": "03",
+            "issue_date": "2020-08-01",
+            "exp_date": "2050-08-01",
+            "bank_code_std": "097",
+            "pay_cycle": "M",
+            "pay_due_date": "10",
+            "pay_end_date": "2040-08-01",
+            "pay_amt": 76000,
+            "pay_method": "자동이체",
+            "auto_pay_bank_code": "037",
+            "coverages": [
+              { "coverage_type": "암진단", "limit_amount": 30000000, "active": true },
+              { "coverage_type": "수술비", "limit_amount": 5000000, "active": true }
+            ]
+          }
+        ]
+      },
+      "loan": { "principal": 28000000, "balance": 11600000, "monthly_payment": 620000, "next_due_in_days": 58, "prepayment_penalty_krw": 0, "interest_rate_type": "F", "variation_cycle_months": null, "fixed_rate_apply_months": 10 },
+      "portfolio": {
+        "total_value": 82000000,
+        "high_risk_weight": 0.62,
+        "holdings": [
+          { "asset_type": "domestic_equity_fund", "risk_grade": "high", "weight": 0.38 },
+          { "asset_type": "overseas_equity_etf", "risk_grade": "high", "weight": 0.24 },
+          { "asset_type": "bond", "risk_grade": "low", "weight": 0.25 },
+          { "asset_type": "cash", "risk_grade": "low", "weight": 0.13 }
+        ],
+        "event_ref": { "drawdown_pct": 11, "high_risk_weight": 0.62, "loss_amount_krw": 9020000, "detected_reason": "최근 20영업일 해외주식 ETF 평가손실 확대" }
+      },
+      "accounts": [
+        { "bank_name": "전북은행", "product_name": "JB 주거래통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 4600000, "available_krw": 4600000, "issued_on": "2020-01-10", "matures_on": null },
+        { "bank_name": "전북은행", "product_name": "JB 정기예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 16000000, "available_krw": 16000000, "issued_on": "2025-02-02", "matures_on": "2027-02-02" }
+      ],
+      "transactions": [
+        { "direction": "in", "transaction_type": "급여", "description": "급여", "amount_krw": 3100000, "category_hint": "income", "branch_name": "전주본점" },
+        { "direction": "out", "transaction_type": "현금", "description": "전북대병원", "amount_krw": 168000, "category_hint": "medical", "branch_name": "전주본점" },
+        { "direction": "out", "transaction_type": "자동이체", "description": "보험료", "amount_krw": 194000, "category_hint": "insurance_premium", "branch_name": "전주본점" },
+        { "direction": "out", "transaction_type": "자동이체", "description": "대출상환", "amount_krw": 620000, "category_hint": "loan_repayment", "branch_name": "전주본점" },
+        { "direction": "out", "transaction_type": "체크", "description": "생활비", "amount_krw": 92000, "category_hint": "living", "branch_name": "전주본점" }
+      ],
+      "cards": [
+        {
+          "card_name": "JB 생활카드",
+          "card_num_masked": "5388********1021",
+          "card_member_type": "1",
+          "card_type": "01",
+          "issue_date": "2021-04-01",
+          "credit_check_type": "credit",
+          "charge_krw": 684000,
+          "settlement_in_days": 14,
+          "details": [
+            { "used_on": "2026-05-23", "merchant_name": "전북대병원", "amount_krw": 168000, "category_hint": "medical" },
+            { "used_on": "2026-05-25", "merchant_name": "마트", "amount_krw": 86000, "category_hint": "living" },
+            { "used_on": "2026-05-28", "merchant_name": "약국", "amount_krw": 42000, "category_hint": "medical" }
+          ]
+        }
+      ],
+      "memory": { "medical_willingness": "moderate", "risk_preference": "mid", "medical_one_time_budget_krw": 1200000, "monthly_medical_budget_krw": 180000, "medical_budget_ratio": 0.06, "hospital_preference": "전북대학교병원", "investment_style": "balanced", "constraints": { "투자": "손실 회복 전 신규 고위험 확대 금지" } }
+    },
+    {
+      "name": "이정희",
+      "birth_date": "1952-09-03",
+      "age_band": "70-74",
+      "scenario": "bp_rising",
+      "health": {
+        "blood_pressure": { "systolic": 158, "diastolic": 94, "unit": "mmHg", "judgement": "상승" },
+        "ldl_cholesterol": { "value": 162, "unit": "mg/dL", "judgement": "높음" },
+        "sleep_score": { "score": 55, "trend_30d": -10 },
+        "event_ref": { "reason": "혈압 상승 2회 연속 감지, 수면 저하 동반", "diagnosed_on": "2026-05-29", "treatment": "고혈압 약제 조정 상담", "worsened_metric": "blood_pressure" },
+        "document": { "doc_type": "diagnosis", "issued_at": "2026-05-29", "summary": { "diagnosis": "고혈압 추적관리", "treatment_history": "2024년부터 항고혈압제 복용", "follow_up": "1개월 내 재진" } }
+      },
+      "insurance": {
+        "gap_hint": "심혈관 특약 없음",
+        "policies": [
+          {
+            "product_name": "JB 기본 실손의료보험",
+            "policy_type": "실손",
+            "active": true,
+            "policy_no_suffix": "LJ02A00001",
+            "insu_type_code": "01",
+            "issue_date": "2015-06-10",
+            "exp_date": "2035-06-10",
+            "bank_code_std": "097",
+            "pay_cycle": "M",
+            "pay_due_date": "15",
+            "pay_end_date": "2030-06-10",
+            "pay_amt": 132000,
+            "pay_method": "자동이체",
+            "auto_pay_bank_code": "037",
+            "coverages": [
+              { "coverage_type": "실손", "limit_amount": 40000000, "active": true },
+              { "coverage_type": "입원일당", "limit_amount": 50000, "active": true }
+            ]
+          }
+        ]
+      },
+      "loan": { "principal": 18000000, "balance": 7400000, "monthly_payment": 420000, "next_due_in_days": 35, "prepayment_penalty_krw": 0, "interest_rate_type": "F", "variation_cycle_months": null, "fixed_rate_apply_months": 6 },
+      "portfolio": { "total_value": 69000000, "high_risk_weight": 0.35, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.35 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.45 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.2 } ], "event_ref": { "high_risk_weight": 0.35, "detected_reason": "건강 이벤트 중심" } },
+      "accounts": [
+        { "bank_name": "전북은행", "product_name": "연금수령통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 3900000, "available_krw": 3900000, "issued_on": "2019-02-15", "matures_on": null },
+        { "bank_name": "전북은행", "product_name": "시니어 정기예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 22000000, "available_krw": 22000000, "issued_on": "2024-11-01", "matures_on": "2026-11-01" }
+      ],
+      "transactions": [
+        { "direction": "in", "transaction_type": "연금", "description": "국민연금", "amount_krw": 780000, "category_hint": "income", "branch_name": "군산점" },
+        { "direction": "out", "transaction_type": "현금", "description": "심장내과", "amount_krw": 225000, "category_hint": "medical", "branch_name": "군산점" },
+        { "direction": "out", "transaction_type": "자동이체", "description": "보험료", "amount_krw": 132000, "category_hint": "insurance_premium", "branch_name": "군산점" },
+        { "direction": "out", "transaction_type": "자동이체", "description": "관리비", "amount_krw": 268000, "category_hint": "fixed_cost", "branch_name": "군산점" }
+      ],
+      "cards": [
+        { "card_name": "JB 시니어카드", "card_num_masked": "9440********1188", "card_member_type": "1", "card_type": "01", "issue_date": "2020-02-20", "credit_check_type": "credit", "charge_krw": 512000, "settlement_in_days": 20, "details": [ { "used_on": "2026-05-20", "merchant_name": "심장내과", "amount_krw": 225000, "category_hint": "medical" }, { "used_on": "2026-05-27", "merchant_name": "약국", "amount_krw": 58000, "category_hint": "medical" } ] }
+      ],
+      "memory": { "medical_willingness": "conservative", "risk_preference": "low", "medical_one_time_budget_krw": 900000, "monthly_medical_budget_krw": 160000, "medical_budget_ratio": 0.08, "hospital_preference": "원광대학교병원", "investment_style": "stable", "constraints": { "의료비": "월 20만원 초과 지출 부담" } }
+    },
+    {
+      "name": "최성호",
+      "birth_date": "1968-12-21",
+      "age_band": "55-59",
+      "scenario": "income_drop",
+      "health": { "blood_pressure": { "systolic": 132, "diastolic": 84, "unit": "mmHg", "judgement": "경계" }, "ldl_cholesterol": { "value": 136, "unit": "mg/dL", "judgement": "경계" }, "sleep_score": { "score": 61, "trend_30d": -4 }, "event_ref": { "reason": "소득 감소 후 수면 저하", "diagnosed_on": "2026-05-10", "treatment": "건강검진 추적", "worsened_metric": "sleep_score" }, "document": { "doc_type": "checkup", "issued_at": "2026-05-10", "summary": { "diagnosis": "대사증후군 경계", "treatment_history": "운동 권고", "follow_up": "6개월 후" } } },
+      "insurance": { "gap_hint": null, "policies": [ { "product_name": "JB 가족건강보험", "policy_type": "건강", "active": true, "policy_no_suffix": "CS03A00001", "insu_type_code": "03", "issue_date": "2019-01-03", "exp_date": "2049-01-03", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "20", "pay_end_date": "2039-01-03", "pay_amt": 158000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 45000000, "active": true }, { "coverage_type": "심혈관", "limit_amount": 25000000, "active": true }, { "coverage_type": "암진단", "limit_amount": 40000000, "active": true } ] } ] },
+      "loan": { "principal": 36000000, "balance": 21400000, "monthly_payment": 880000, "next_due_in_days": 28, "prepayment_penalty_krw": 120000, "interest_rate_type": "V", "variation_cycle_months": 6, "fixed_rate_apply_months": null },
+      "portfolio": { "total_value": 94000000, "high_risk_weight": 0.48, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.3 }, { "asset_type": "fund", "risk_grade": "mid", "weight": 0.28 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.3 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.12 } ], "event_ref": { "income_drop_pct": 18, "detected_reason": "최근 3개월 입금액 감소" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "사업자입출금", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 5200000, "available_krw": 5200000, "issued_on": "2021-03-05", "matures_on": null }, { "bank_name": "전북은행", "product_name": "비상금예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 9000000, "available_krw": 9000000, "issued_on": "2025-01-12", "matures_on": "2026-07-12" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "급여", "description": "매출입금", "amount_krw": 2400000, "category_hint": "income", "branch_name": "익산점" }, { "direction": "out", "transaction_type": "자동이체", "description": "대출상환", "amount_krw": 880000, "category_hint": "loan_repayment", "branch_name": "익산점" }, { "direction": "out", "transaction_type": "현금", "description": "내과", "amount_krw": 76000, "category_hint": "medical", "branch_name": "익산점" }, { "direction": "out", "transaction_type": "체크", "description": "사업장관리비", "amount_krw": 430000, "category_hint": "fixed_cost", "branch_name": "익산점" } ],
+      "cards": [ { "card_name": "JB 사업자카드", "card_num_masked": "4123********8812", "card_member_type": "1", "card_type": "01", "issue_date": "2021-03-10", "credit_check_type": "credit", "charge_krw": 1032000, "settlement_in_days": 11, "details": [ { "used_on": "2026-05-18", "merchant_name": "주유소", "amount_krw": 210000, "category_hint": "business" }, { "used_on": "2026-05-22", "merchant_name": "내과", "amount_krw": 76000, "category_hint": "medical" } ] } ],
+      "memory": { "medical_willingness": "moderate", "risk_preference": "mid", "medical_one_time_budget_krw": 1300000, "monthly_medical_budget_krw": 220000, "medical_budget_ratio": 0.07, "hospital_preference": "전북대학교병원", "investment_style": "income", "constraints": { "현금흐름": "사업자금 3개월치 유지" } }
+    },
+    {
+      "name": "정미라",
+      "birth_date": "1959-07-07",
+      "age_band": "65-69",
+      "scenario": "spending_spike",
+      "health": { "blood_pressure": { "systolic": 142, "diastolic": 89, "unit": "mmHg", "judgement": "경계" }, "ldl_cholesterol": { "value": 129, "unit": "mg/dL", "judgement": "경계" }, "sleep_score": { "score": 70, "trend_30d": -2 }, "event_ref": { "reason": "최근 의료/간병성 지출 증가", "diagnosed_on": "2026-04-30", "treatment": "무릎 물리치료", "worsened_metric": "medical_spending" }, "document": { "doc_type": "prescription", "issued_at": "2026-04-30", "summary": { "diagnosis": "무릎 관절염", "treatment_history": "물리치료 6회", "follow_up": "통증 지속 시 정형외과" } } },
+      "insurance": { "gap_hint": "암 진단비 공백", "policies": [ { "product_name": "JB 실손의료보험", "policy_type": "실손", "active": true, "policy_no_suffix": "JM04A00001", "insu_type_code": "01", "issue_date": "2016-05-20", "exp_date": "2036-05-20", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "12", "pay_end_date": "2031-05-20", "pay_amt": 101000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 45000000, "active": true }, { "coverage_type": "심혈관", "limit_amount": 15000000, "active": true } ] } ] },
+      "loan": { "principal": 12000000, "balance": 4800000, "monthly_payment": 310000, "next_due_in_days": 47, "prepayment_penalty_krw": 0, "interest_rate_type": "F", "variation_cycle_months": null, "fixed_rate_apply_months": 9 },
+      "portfolio": { "total_value": 72000000, "high_risk_weight": 0.42, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.22 }, { "asset_type": "fund", "risk_grade": "mid", "weight": 0.2 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.4 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.18 } ], "event_ref": { "spending_spike_pct": 34, "detected_reason": "의료비와 카드결제 증가" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "생활비통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 2800000, "available_krw": 2800000, "issued_on": "2018-09-01", "matures_on": null }, { "bank_name": "전북은행", "product_name": "목돈예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 11000000, "available_krw": 11000000, "issued_on": "2024-08-01", "matures_on": "2026-08-01" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "연금", "description": "개인연금", "amount_krw": 1120000, "category_hint": "income", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "카드", "description": "정형외과", "amount_krw": 184000, "category_hint": "medical", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "카드", "description": "간병용품", "amount_krw": 156000, "category_hint": "medical", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "자동이체", "description": "보험료", "amount_krw": 101000, "category_hint": "insurance_premium", "branch_name": "전주본점" } ],
+      "cards": [ { "card_name": "JB 함께카드", "card_num_masked": "5522********7701", "card_member_type": "1", "card_type": "01", "issue_date": "2019-09-12", "credit_check_type": "credit", "charge_krw": 798000, "settlement_in_days": 17, "details": [ { "used_on": "2026-05-19", "merchant_name": "정형외과", "amount_krw": 184000, "category_hint": "medical" }, { "used_on": "2026-05-21", "merchant_name": "간병용품", "amount_krw": 156000, "category_hint": "medical" } ] } ],
+      "memory": { "medical_willingness": "low", "risk_preference": "low", "medical_one_time_budget_krw": 700000, "monthly_medical_budget_krw": 140000, "medical_budget_ratio": 0.09, "hospital_preference": "전북대학교병원", "investment_style": "stable", "constraints": { "보험": "월 보험료 추가 부담 낮음" } }
+    },
+    {
+      "name": "한도윤",
+      "birth_date": "1980-02-11",
+      "age_band": "45-49",
+      "scenario": "portfolio_loss",
+      "health": { "blood_pressure": { "systolic": 128, "diastolic": 82, "unit": "mmHg", "judgement": "정상상한" }, "ldl_cholesterol": { "value": 118, "unit": "mg/dL", "judgement": "정상" }, "sleep_score": { "score": 52, "trend_30d": -14 }, "event_ref": { "reason": "고위험 투자 손실 후 수면 급락", "diagnosed_on": "2026-05-31", "treatment": "수면 위생 상담", "worsened_metric": "sleep_score" }, "document": { "doc_type": "self_reported", "issued_at": "2026-05-31", "summary": { "diagnosis": "스트레스성 수면저하", "treatment_history": "진단서 없음, 웨어러블 기록 기반", "follow_up": "필요 시 진료 연결" } } },
+      "insurance": { "gap_hint": null, "policies": [ { "product_name": "JB 젊은건강보험", "policy_type": "건강", "active": true, "policy_no_suffix": "HD05A00001", "insu_type_code": "03", "issue_date": "2022-02-14", "exp_date": "2052-02-14", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "5", "pay_end_date": "2042-02-14", "pay_amt": 92000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 50000000, "active": true }, { "coverage_type": "심혈관", "limit_amount": 30000000, "active": true } ] } ] },
+      "loan": { "principal": 52000000, "balance": 38600000, "monthly_payment": 1260000, "next_due_in_days": 21, "prepayment_penalty_krw": 350000, "interest_rate_type": "V", "variation_cycle_months": 3, "fixed_rate_apply_months": null },
+      "portfolio": { "total_value": 136000000, "high_risk_weight": 0.76, "holdings": [ { "asset_type": "overseas_equity_etf", "risk_grade": "high", "weight": 0.48 }, { "asset_type": "thematic_fund", "risk_grade": "high", "weight": 0.28 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.14 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.1 } ], "event_ref": { "drawdown_pct": 18, "high_risk_weight": 0.76, "loss_amount_krw": 24480000, "detected_reason": "테마형 펀드 손실 확대" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "직장인통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 6100000, "available_krw": 6100000, "issued_on": "2021-06-01", "matures_on": null }, { "bank_name": "전북은행", "product_name": "단기예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 8000000, "available_krw": 8000000, "issued_on": "2025-12-01", "matures_on": "2026-12-01" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "급여", "description": "급여", "amount_krw": 5200000, "category_hint": "income", "branch_name": "혁신도시점" }, { "direction": "out", "transaction_type": "자동이체", "description": "주택담보대출", "amount_krw": 1260000, "category_hint": "loan_repayment", "branch_name": "혁신도시점" }, { "direction": "out", "transaction_type": "카드", "description": "헬스케어", "amount_krw": 118000, "category_hint": "medical", "branch_name": "혁신도시점" }, { "direction": "out", "transaction_type": "카드", "description": "생활비", "amount_krw": 210000, "category_hint": "living", "branch_name": "혁신도시점" } ],
+      "cards": [ { "card_name": "JB 프리미엄카드", "card_num_masked": "4900********3302", "card_member_type": "1", "card_type": "01", "issue_date": "2022-06-15", "credit_check_type": "credit", "charge_krw": 1680000, "settlement_in_days": 9, "details": [ { "used_on": "2026-05-18", "merchant_name": "헬스케어", "amount_krw": 118000, "category_hint": "medical" }, { "used_on": "2026-05-22", "merchant_name": "해외결제", "amount_krw": 420000, "category_hint": "living" } ] } ],
+      "memory": { "medical_willingness": "aggressive", "risk_preference": "high", "medical_one_time_budget_krw": 1800000, "monthly_medical_budget_krw": 260000, "medical_budget_ratio": 0.05, "hospital_preference": "전북대학교병원", "investment_style": "growth", "constraints": { "투자": "세금계좌 매도 최소화" } }
+    },
+    {
+      "name": "오세진",
+      "birth_date": "1949-10-02",
+      "age_band": "75-79",
+      "scenario": "repayment_pressure",
+      "health": { "blood_pressure": { "systolic": 150, "diastolic": 91, "unit": "mmHg", "judgement": "상승" }, "ldl_cholesterol": { "value": 142, "unit": "mg/dL", "judgement": "경계" }, "sleep_score": { "score": 58, "trend_30d": -5 }, "event_ref": { "reason": "대출 상환일 접근과 혈압 상승", "diagnosed_on": "2026-05-12", "treatment": "고혈압 추적", "worsened_metric": "blood_pressure" }, "document": { "doc_type": "checkup", "issued_at": "2026-05-12", "summary": { "diagnosis": "고혈압 경계", "treatment_history": "정기검진", "follow_up": "2개월 후" } } },
+      "insurance": { "gap_hint": "간병 특약 없음", "policies": [ { "product_name": "JB 실손의료보험", "policy_type": "실손", "active": true, "policy_no_suffix": "OS06A00001", "insu_type_code": "01", "issue_date": "2012-04-08", "exp_date": "2032-04-08", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "18", "pay_end_date": "2029-04-08", "pay_amt": 146000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 35000000, "active": true }, { "coverage_type": "심혈관", "limit_amount": 10000000, "active": true } ] } ] },
+      "loan": { "principal": 15000000, "balance": 9200000, "monthly_payment": 740000, "next_due_in_days": 12, "prepayment_penalty_krw": 0, "interest_rate_type": "F", "variation_cycle_months": null, "fixed_rate_apply_months": 4 },
+      "portfolio": { "total_value": 54000000, "high_risk_weight": 0.28, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.18 }, { "asset_type": "fund", "risk_grade": "mid", "weight": 0.1 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.52 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.2 } ], "event_ref": { "repayment_due_in_days": 12, "detected_reason": "월 상환액 대비 가용현금 낮음" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "연금통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 1900000, "available_krw": 1900000, "issued_on": "2017-01-20", "matures_on": null }, { "bank_name": "전북은행", "product_name": "노후예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 7200000, "available_krw": 7200000, "issued_on": "2024-06-01", "matures_on": "2026-06-01" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "연금", "description": "국민연금", "amount_krw": 670000, "category_hint": "income", "branch_name": "남원점" }, { "direction": "out", "transaction_type": "자동이체", "description": "대출상환", "amount_krw": 740000, "category_hint": "loan_repayment", "branch_name": "남원점" }, { "direction": "out", "transaction_type": "현금", "description": "내과", "amount_krw": 92000, "category_hint": "medical", "branch_name": "남원점" }, { "direction": "out", "transaction_type": "자동이체", "description": "관리비", "amount_krw": 224000, "category_hint": "fixed_cost", "branch_name": "남원점" } ],
+      "cards": [ { "card_name": "JB 복지카드", "card_num_masked": "3751********2210", "card_member_type": "1", "card_type": "01", "issue_date": "2018-03-03", "credit_check_type": "credit", "charge_krw": 438000, "settlement_in_days": 13, "details": [ { "used_on": "2026-05-18", "merchant_name": "내과", "amount_krw": 92000, "category_hint": "medical" }, { "used_on": "2026-05-24", "merchant_name": "약국", "amount_krw": 37000, "category_hint": "medical" } ] } ],
+      "memory": { "medical_willingness": "conservative", "risk_preference": "low", "medical_one_time_budget_krw": 600000, "monthly_medical_budget_krw": 120000, "medical_budget_ratio": 0.1, "hospital_preference": "남원의료원", "investment_style": "stable", "constraints": { "현금흐름": "상환일 전 현금 150만원 유지" } }
+    },
+    {
+      "name": "임가은",
+      "birth_date": "1974-01-24",
+      "age_band": "50-54",
+      "scenario": "health_checkup",
+      "health": { "blood_pressure": { "systolic": 136, "diastolic": 85, "unit": "mmHg", "judgement": "경계" }, "ldl_cholesterol": { "value": 155, "unit": "mg/dL", "judgement": "높음" }, "sleep_score": { "score": 66, "trend_30d": -3 }, "event_ref": { "reason": "검진상 LDL 상승", "diagnosed_on": "2026-05-08", "treatment": "식이요법", "worsened_metric": "ldl_cholesterol" }, "document": { "doc_type": "checkup", "issued_at": "2026-05-08", "summary": { "diagnosis": "이상지질혈증 의심", "treatment_history": "검진 후 상담 예정", "follow_up": "3개월 후" } } },
+      "insurance": { "gap_hint": "실손 갱신 보험료 부담", "policies": [ { "product_name": "JB 실손의료보험 갱신형", "policy_type": "실손", "active": true, "policy_no_suffix": "IG07A00001", "insu_type_code": "01", "issue_date": "2014-07-15", "exp_date": "2034-07-15", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "22", "pay_end_date": "2034-07-15", "pay_amt": 212000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 50000000, "active": true }, { "coverage_type": "심혈관", "limit_amount": 20000000, "active": true } ] } ] },
+      "loan": { "principal": 32000000, "balance": 18500000, "monthly_payment": 760000, "next_due_in_days": 39, "prepayment_penalty_krw": 80000, "interest_rate_type": "V", "variation_cycle_months": 6, "fixed_rate_apply_months": null },
+      "portfolio": { "total_value": 103000000, "high_risk_weight": 0.55, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.32 }, { "asset_type": "fund", "risk_grade": "high", "weight": 0.23 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.32 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.13 } ], "event_ref": { "health_checkup": true, "detected_reason": "검진 결과와 보험료 부담 동시 점검" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "급여통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 7400000, "available_krw": 7400000, "issued_on": "2020-04-13", "matures_on": null }, { "bank_name": "전북은행", "product_name": "목표달성예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 14000000, "available_krw": 14000000, "issued_on": "2025-03-01", "matures_on": "2027-03-01" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "급여", "description": "급여", "amount_krw": 4100000, "category_hint": "income", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "자동이체", "description": "보험료", "amount_krw": 212000, "category_hint": "insurance_premium", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "현금", "description": "검진센터", "amount_krw": 136000, "category_hint": "medical", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "자동이체", "description": "대출상환", "amount_krw": 760000, "category_hint": "loan_repayment", "branch_name": "전주본점" } ],
+      "cards": [ { "card_name": "JB 우먼카드", "card_num_masked": "4111********9032", "card_member_type": "1", "card_type": "01", "issue_date": "2020-05-01", "credit_check_type": "credit", "charge_krw": 932000, "settlement_in_days": 16, "details": [ { "used_on": "2026-05-11", "merchant_name": "검진센터", "amount_krw": 136000, "category_hint": "medical" }, { "used_on": "2026-05-15", "merchant_name": "마트", "amount_krw": 138000, "category_hint": "living" } ] } ],
+      "memory": { "medical_willingness": "moderate", "risk_preference": "mid", "medical_one_time_budget_krw": 1500000, "monthly_medical_budget_krw": 240000, "medical_budget_ratio": 0.06, "hospital_preference": "전북대학교병원", "investment_style": "balanced", "constraints": { "보험": "갱신 보험료 월 25만원 이하 선호" } }
+    },
+    {
+      "name": "서윤재",
+      "birth_date": "1958-11-16",
+      "age_band": "68-72",
+      "scenario": "portfolio_loss",
+      "health": { "blood_pressure": { "systolic": 149, "diastolic": 90, "unit": "mmHg", "judgement": "상승" }, "ldl_cholesterol": { "value": 151, "unit": "mg/dL", "judgement": "높음" }, "sleep_score": { "score": 60, "trend_30d": -8 }, "event_ref": { "reason": "포트폴리오 손실과 혈압 상승 동시 감지", "diagnosed_on": "2026-05-26", "treatment": "혈압 추적", "worsened_metric": "blood_pressure" }, "document": { "doc_type": "checkup", "issued_at": "2026-05-26", "summary": { "diagnosis": "고혈압 경계 및 LDL 상승", "treatment_history": "건강검진", "follow_up": "1개월 혈압 기록" } } },
+      "insurance": { "gap_hint": "심혈관 특약 없음", "policies": [ { "product_name": "JB 실손의료보험", "policy_type": "실손", "active": true, "policy_no_suffix": "SY08A00001", "insu_type_code": "01", "issue_date": "2017-10-01", "exp_date": "2037-10-01", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "8", "pay_end_date": "2032-10-01", "pay_amt": 121000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 42000000, "active": true } ] } ] },
+      "loan": { "principal": 26000000, "balance": 13800000, "monthly_payment": 690000, "next_due_in_days": 44, "prepayment_penalty_krw": 0, "interest_rate_type": "F", "variation_cycle_months": null, "fixed_rate_apply_months": 8 },
+      "portfolio": { "total_value": 91000000, "high_risk_weight": 0.68, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.42 }, { "asset_type": "fund", "risk_grade": "high", "weight": 0.26 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.22 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.1 } ], "event_ref": { "drawdown_pct": 14, "high_risk_weight": 0.68, "loss_amount_krw": 12740000, "detected_reason": "고위험 펀드 평가손실" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "주거래통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 3600000, "available_krw": 3600000, "issued_on": "2018-01-10", "matures_on": null }, { "bank_name": "전북은행", "product_name": "안심예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 13000000, "available_krw": 13000000, "issued_on": "2024-12-20", "matures_on": "2026-12-20" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "연금", "description": "퇴직연금", "amount_krw": 1450000, "category_hint": "income", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "현금", "description": "내과", "amount_krw": 132000, "category_hint": "medical", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "자동이체", "description": "보험료", "amount_krw": 121000, "category_hint": "insurance_premium", "branch_name": "전주본점" }, { "direction": "out", "transaction_type": "자동이체", "description": "대출상환", "amount_krw": 690000, "category_hint": "loan_repayment", "branch_name": "전주본점" } ],
+      "cards": [ { "card_name": "JB 시니어플러스", "card_num_masked": "5388********4560", "card_member_type": "1", "card_type": "01", "issue_date": "2019-01-02", "credit_check_type": "credit", "charge_krw": 604000, "settlement_in_days": 18, "details": [ { "used_on": "2026-05-20", "merchant_name": "내과", "amount_krw": 132000, "category_hint": "medical" }, { "used_on": "2026-05-24", "merchant_name": "약국", "amount_krw": 44000, "category_hint": "medical" } ] } ],
+      "memory": { "medical_willingness": "conservative", "risk_preference": "low", "medical_one_time_budget_krw": 1100000, "monthly_medical_budget_krw": 190000, "medical_budget_ratio": 0.08, "hospital_preference": "전북대학교병원", "investment_style": "stable", "constraints": { "투자": "원금 손실 확대 방어 우선" } }
+    },
+    {
+      "name": "권하나",
+      "birth_date": "1984-05-19",
+      "age_band": "40-44",
+      "scenario": "spending_spike",
+      "health": { "blood_pressure": { "systolic": 126, "diastolic": 80, "unit": "mmHg", "judgement": "정상" }, "ldl_cholesterol": { "value": 121, "unit": "mg/dL", "judgement": "정상상한" }, "sleep_score": { "score": 57, "trend_30d": -9 }, "event_ref": { "reason": "육아/의료 지출 증가와 수면 저하", "diagnosed_on": "2026-05-14", "treatment": "수면 관리", "worsened_metric": "sleep_score" }, "document": { "doc_type": "self_reported", "issued_at": "2026-05-14", "summary": { "diagnosis": "수면 부족", "treatment_history": "자가 기록", "follow_up": "필요 시 상담" } } },
+      "insurance": { "gap_hint": null, "policies": [ { "product_name": "JB 가족실손보험", "policy_type": "실손", "active": true, "policy_no_suffix": "KH09A00001", "insu_type_code": "01", "issue_date": "2023-01-01", "exp_date": "2053-01-01", "bank_code_std": "097", "pay_cycle": "M", "pay_due_date": "6", "pay_end_date": "2043-01-01", "pay_amt": 168000, "pay_method": "자동이체", "auto_pay_bank_code": "037", "coverages": [ { "coverage_type": "실손", "limit_amount": 50000000, "active": true }, { "coverage_type": "심혈관", "limit_amount": 20000000, "active": true }, { "coverage_type": "자녀입원", "limit_amount": 50000, "active": true } ] } ] },
+      "loan": { "principal": 44000000, "balance": 30200000, "monthly_payment": 980000, "next_due_in_days": 31, "prepayment_penalty_krw": 210000, "interest_rate_type": "V", "variation_cycle_months": 6, "fixed_rate_apply_months": null },
+      "portfolio": { "total_value": 78000000, "high_risk_weight": 0.58, "holdings": [ { "asset_type": "equity", "risk_grade": "high", "weight": 0.34 }, { "asset_type": "fund", "risk_grade": "high", "weight": 0.24 }, { "asset_type": "bond", "risk_grade": "low", "weight": 0.26 }, { "asset_type": "cash", "risk_grade": "low", "weight": 0.16 } ], "event_ref": { "spending_spike_pct": 29, "detected_reason": "카드 청구액과 의료 지출 증가" } },
+      "accounts": [ { "bank_name": "전북은행", "product_name": "육아생활통장", "account_type": "checking", "openbanking_account_type": "1", "balance_krw": 4900000, "available_krw": 4900000, "issued_on": "2022-02-02", "matures_on": null }, { "bank_name": "전북은행", "product_name": "자녀교육예금", "account_type": "deposit", "openbanking_account_type": "2", "balance_krw": 12000000, "available_krw": 12000000, "issued_on": "2025-04-02", "matures_on": "2027-04-02" } ],
+      "transactions": [ { "direction": "in", "transaction_type": "급여", "description": "급여", "amount_krw": 4700000, "category_hint": "income", "branch_name": "혁신도시점" }, { "direction": "out", "transaction_type": "카드", "description": "소아과", "amount_krw": 98000, "category_hint": "medical", "branch_name": "혁신도시점" }, { "direction": "out", "transaction_type": "자동이체", "description": "대출상환", "amount_krw": 980000, "category_hint": "loan_repayment", "branch_name": "혁신도시점" }, { "direction": "out", "transaction_type": "카드", "description": "교육비", "amount_krw": 380000, "category_hint": "education", "branch_name": "혁신도시점" } ],
+      "cards": [ { "card_name": "JB 패밀리카드", "card_num_masked": "4901********7712", "card_member_type": "1", "card_type": "01", "issue_date": "2022-02-12", "credit_check_type": "credit", "charge_krw": 1240000, "settlement_in_days": 12, "details": [ { "used_on": "2026-05-17", "merchant_name": "소아과", "amount_krw": 98000, "category_hint": "medical" }, { "used_on": "2026-05-19", "merchant_name": "학원", "amount_krw": 380000, "category_hint": "education" } ] } ],
+      "memory": { "medical_willingness": "moderate", "risk_preference": "mid", "medical_one_time_budget_krw": 1600000, "monthly_medical_budget_krw": 250000, "medical_budget_ratio": 0.06, "hospital_preference": "전북대학교병원", "investment_style": "growth", "constraints": { "현금흐름": "교육비 자동이체 유지" } }
+    }
+  ]
+}

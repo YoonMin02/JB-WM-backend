@@ -54,6 +54,13 @@ def _reconcile_mvp_schema() -> None:
             if "medical_budget_ratio" not in memory_columns:
                 conn.execute(text("ALTER TABLE customermemory ADD COLUMN medical_budget_ratio FLOAT DEFAULT 0"))
 
+    for table_name in ("insurancepolicy", "coverageitem"):
+        if inspector.has_table(table_name):
+            columns = {col["name"] for col in inspector.get_columns(table_name)}
+            if "external_ref" not in columns:
+                with engine.begin() as conn:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN external_ref JSON"))
+
 
 def get_session() -> Iterator[Session]:
     """FastAPI 의존성: 요청 단위 DB 세션."""

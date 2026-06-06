@@ -27,7 +27,7 @@ sequenceDiagram
             FSM->>EX: 실행 요청
         else has_external_effect == true
             POL->>FSM: NeedApproval
-            FSM->>U: 이 액션 1건 승인 요청
+            FSM->>U: 승인 필요 액션 표시
             U-->>FSM: 승인 / 거절 / 수정
             alt 승인
                 FSM->>EX: 실행 요청 (승인 이벤트, LLM 미경유)
@@ -107,10 +107,22 @@ REGISTRY = {
 ### 실행 규칙
 
 - Executor는 **승인된(또는 auto) proposal에 대해서만** 동작한다. 상태머신이 보장.
-- 승인은 **해당 proposal 1건에만** 유효하다. 다른 액션 실행 불가.
+- 승인 UI는 한 세션의 여러 proposal을 동시에 보여줄 수 있다.
+- 단, 승인은 **해당 proposal 1건에만** 유효하다. 다른 액션 실행 불가.
 - 모든 실행은 `ActionExecution` 레코드를 남긴다 (성공/실패/결과).
 - 실패 시 `Failed` 상태로 전이하고 사유를 기록한다.
-- MVP의 외부 액션은 모두 **mock** (실제 예약/청구/거래 없음).
+- MVP의 외부 액션은 기본적으로 **mock DB 반영**이다. 실제 예약/청구/거래 없음.
+
+### 실행 모드
+
+`ACTION_EXECUTION_MODE`로 승인 후 Executor 동작을 선택합니다.
+
+| 값 | 동작 |
+|---|---|
+| `mock_apply` | 승인 결과를 mock DB에 반영. 예: `review_insurance` 승인 시 심혈관 특약 coverage 추가, `rebalance_portfolio` 승인 시 mock 포트폴리오 비중 조정 |
+| `external_request` | 실제 외부 실행 요청 모드. 현재는 안전상 실패 처리하며, 외부 API/운영 승인 체계 구현 후 활성화 |
+
+중요: `stub`/`pydantic_ai`는 proposal을 만드는 추론 방식이고, `ACTION_EXECUTION_MODE`는 승인 후 실행 방식입니다. 실제 LLM reasoning을 켜도 Executor가 자동으로 DB를 바꾸지는 않습니다.
 
 ## 검증 (VerifyResult)
 
@@ -135,3 +147,4 @@ REGISTRY = {
 - 승인 스코핑 (proposal A 승인으로 B 실행 불가)
 - auto 라우팅 정확성 (외부 효과 분류)
 - 실패 전이 + 사유 기록
+- `mock_apply` 승인 후 도메인 요약 변화 확인 (보험 공백 해소, 포트폴리오 고위험 비중 축소)

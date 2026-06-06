@@ -124,3 +124,13 @@ def customer_memory(
 ) -> dict:
     _authorize(principal, customer_id)
     return data_tools.get_customer_memory(db, customer_id)
+
+
+@router.get("/{customer_id}/detail-snapshot")
+def customer_detail_snapshot(
+    customer_id: str,
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> dict:
+    _authorize(principal, customer_id)
+    return data_tools.get_customer_detail_snapshot(db, customer_id)

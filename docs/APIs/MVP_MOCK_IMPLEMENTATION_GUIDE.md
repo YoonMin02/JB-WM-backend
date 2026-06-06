@@ -14,6 +14,10 @@ MVP에서는 다음 순서를 따릅니다.
 4. OAuth, 핀테크이용번호, 계좌번호, 카드식별값, 증권번호, 개인실명번호는 mock 데이터에는 있을 수 있지만 agent 출력에서는 제거합니다.
 5. 실제 외부 API 연결은 adapter 내부 구현으로만 추가하고, FSM/Orchestrator/Policy/Executor는 provider 원문 필드에 의존하지 않습니다.
 
+데모 고객별 원천 mock data는 `app/mock_data/demo_customers.json`에 둡니다.
+`app/seed.py`는 이 파일을 읽어 정규화 테이블과 API body-shaped JSON(`external_ref`, `details`, `raw_ref`)으로 적재합니다.
+seed가 이미 실행된 로컬 DB에서도 추가 데모 고객의 domain mock data는 이 JSON 기준으로 갱신됩니다.
+
 ## 개발 대상
 
 | 우선순위 | 영역 | 원문 문서 | 내부 DTO | Agent tool | MVP 목적 |

@@ -24,21 +24,23 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me"
     privacy_sensitive_retention_days: int = 365
 
-    # Codex / 추론
-    # 'stub' = 결정론적 가짜(테스트/데모), 'codex' = 실제 Codex SDK
-    reasoner: Literal["stub", "codex"] = "stub"
-    openai_api_key: str | None = None
-    codex_working_directory: str = "./workspace"
-    codex_workspace_include_snapshots: bool = False
-    codex_model: str = "gpt-5.4"  # 사용 가능: gpt-5.5/5.4/5.4-mini/5.3-codex/5.2
+    # Reasoning
+    # 'stub' = 결정론적 가짜(테스트/데모), 'pydantic_ai' = PydanticAI + Codex SDK transport
+    reasoner: Literal["stub", "pydantic_ai"] = "stub"
+    codex_model: str = "gpt-5.4"
+    codex_model_reasoning_effort: str = "high"
     # 호출 횟수 가드 (쿼터 보호 — 넉넉하게). 0 = 무제한
-    codex_max_calls_per_minute: int = 30
-    codex_max_calls_total: int = 500
+    llm_max_calls_per_minute: int = 30
+    llm_max_calls_total: int = 500
 
     # Storage
     file_storage_driver: str = "local"
     local_storage_path: str = "./storage"
     policy_docs_path: str = "./policy_docs"
+
+    # Action execution
+    # mock_apply = 승인 시 mock DB에 반영, external_request = 실제 외부 실행 요청(현재 미구현)
+    action_execution_mode: Literal["mock_apply", "external_request"] = "mock_apply"
 
 
 @lru_cache
