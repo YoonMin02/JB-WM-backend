@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import customers, health, privacy, proposals, sessions
+from app.api.routes import customers, health, privacy, proposals, sessions, workflows
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.logging import configure_logging, logger
@@ -38,8 +38,14 @@ app.include_router(customers.router)
 app.include_router(sessions.router)
 app.include_router(proposals.router)
 app.include_router(privacy.router)
+app.include_router(workflows.router)
 
 
 @app.get("/")
 def root() -> dict:
-    return {"service": settings.app_name, "reasoner": settings.reasoner}
+    return {
+        "service": settings.app_name,
+        "workflow": "langgraph",
+        "agent_job_mode": settings.agent_job_mode,
+        "legacy_reasoner": settings.reasoner,
+    }

@@ -10,11 +10,15 @@ from decimal import Decimal
 from sqlmodel import Session
 from sqlmodel import select
 
+from fastapi import HTTPException
+
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.agent import ActionExecution, ActionProposal, AgentSession
 from app.models.finance import Holding, PortfolioAccount
 from app.models.insurance import CoverageItem, InsurancePolicy
+from app.planning.schemas import ActionProposalSchema
+from app.policy.engine import evaluate
 
 
 def _exec_record(proposal_id: str, executor: str, result: dict, status: str = "success") -> ActionExecution:
@@ -148,3 +152,47 @@ def execute(db: Session, proposal: ActionProposal) -> ActionExecution:
     db.commit()
     db.refresh(execution)
     return execution
+
+
+def execute_scoped(
+    db: Session,
+    *,
+    proposal_id: str,
+    customer_id: str,
+    require_approval: bool,
+) -> ActionExecution:
+    """Execute a proposal after re-checking customer ownership and policy.
+
+    This is the entrypoint for the LangGraph redesign. The caller may have a
+    graph state, but execution authority is re-derived from the database.
+    """
+
+    proposal = db.get(ActionProposal, proposal_id)
+    if proposal is None:
+        raise HTTPException(404, "제안을 찾을 수 없습니다.")
+    session = db.get(AgentSession, proposal.session_id)
+    if session is None or session.customer_id != customer_id:
+        raise HTTPException(403, "제안의 고객 scope가 일치하지 않습니다.")
+    if proposal.status == "executed":
+        existing = db.exec(select(ActionExecution).where(ActionExecution.proposal_id == proposal.id)).first()
+        if existing is not None:
+            return existing
+        raise HTTPException(409, "이미 실행된 제안이나 실행 기록이 없습니다.")
+    if proposal.status not in {"proposed", "approved"}:
+        raise HTTPException(409, f"실행 가능한 제안 상태가 아닙니다: {proposal.status}")
+
+    routing = evaluate(
+        ActionProposalSchema(
+            kind=proposal.kind,
+            summary=proposal.summary,
+            has_external_effect=proposal.has_external_effect,
+            params=proposal.params,
+            rationale=proposal.rationale,
+        )
+    )
+    if routing.needs_approval and require_approval and proposal.status != "approved":
+        raise HTTPException(409, "고객 승인 전에는 실행할 수 없습니다.")
+    if routing.needs_approval and not require_approval:
+        raise HTTPException(409, "승인 필요 제안은 자동 실행할 수 없습니다.")
+
+    return execute(db, proposal)

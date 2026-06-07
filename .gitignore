@@ -2,6 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.DS_Store
 
 # C extensions
 *.so
@@ -221,3 +222,6 @@ __marimo__/
 # workspace/ = Codex 세션별 워크스페이스(고객 데이터 스냅샷), storage/ = 로컬 파일 저장소
 workspace/
 storage/
+node_modules/
+.playwright-cli/
+temp/

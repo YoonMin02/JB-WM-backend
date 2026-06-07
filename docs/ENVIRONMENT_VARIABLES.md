@@ -23,13 +23,29 @@
 
 | 변수 | 기본 | 설명 |
 |---|---|---|
-| `REASONER` | `stub` | `stub` 또는 `pydantic_ai` |
-| `CODEX_MODEL` | `gpt-5.4` | Codex SDK에 넘길 모델명 |
-| `CODEX_MODEL_REASONING_EFFORT` | `high` | Codex 모델 추론 effort |
+| `REASONER` | `stub` | legacy route용. 새 workflow는 `AGENT_JOB_MODE`를 사용 |
+| `CODEX_MODEL` | `gpt-5.4-mini` | Codex SDK에 넘길 모델명. 기본은 실측 성공한 빠른 모델 |
+| `CODEX_MODEL_REASONING_EFFORT` | `low` | Codex 모델 추론 effort. 토큰/지연을 줄이기 위해 낮게 둠 |
 | `LLM_MAX_CALLS_PER_MINUTE` | `30` | 분당 LLM 호출 한도. `0`이면 무제한 |
 | `LLM_MAX_CALLS_TOTAL` | `500` | 프로세스 총 LLM 호출 한도. `0`이면 무제한 |
 
-기본값은 `REASONER=stub`이라 로컬 데모와 테스트는 Codex 세션 없이 동작합니다. 실제 LLM 모드는 서버에서 `codex login`을 1회 수행한 OAuth 세션을 사용합니다.
+기본값은 `AGENT_JOB_MODE=local_stub`이라 로컬 데모와 테스트는 Codex 세션 없이 동작합니다.
+
+## LangGraph Agent Jobs
+
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `AGENT_JOB_MODE` | `local_stub` | `local_stub` 또는 `codex_cli` |
+| `AGENT_JOB_ROOT` | `/tmp/jbwm-agent-jobs` | job별 `context.json`/`output.json` 작업 디렉터리 |
+| `CODEX_COMMAND` | `codex` | `codex_cli` 모드에서 실행할 CLI command |
+| `AGENT_JOB_CODEX_MODEL` | `gpt-5.4-mini` | `codex_cli`에서 `codex exec --model`로 넘길 모델 |
+| `AGENT_JOB_CODEX_REASONING_EFFORT` | `low` | `codex_cli`에서 `model_reasoning_effort`로 넘길 값 |
+| `AGENT_JOB_CODEX_MODEL_CANDIDATES` | `gpt-5.4-mini,...` | 벤치 스크립트가 순차 측정할 후보 목록 |
+| `AGENT_JOB_TIMEOUT_SECONDS` | `1800` | agent child process timeout |
+| `AGENT_JOB_OUTPUT_MAX_BYTES` | `200000` | 구조화 출력 최대 크기 |
+
+`codex_cli`는 `temp/Codex_with_Gmail`의 process-spawn 패턴을 JB-WM에 맞게 제한한 모드입니다. child env에는 DB/API secret을 넣지 않습니다.
+현재 로컬 벤치 결과는 [`docs/redesign/codex_cli_model_benchmark.md`](redesign/codex_cli_model_benchmark.md)에 기록합니다.
 
 ## Storage / Policy
 
@@ -65,10 +81,19 @@ JWT_SECRET=change-me
 PRIVACY_SENSITIVE_RETENTION_DAYS=365
 
 REASONER=stub
-CODEX_MODEL=gpt-5.4
-CODEX_MODEL_REASONING_EFFORT=high
+CODEX_MODEL=gpt-5.4-mini
+CODEX_MODEL_REASONING_EFFORT=low
 LLM_MAX_CALLS_PER_MINUTE=30
 LLM_MAX_CALLS_TOTAL=500
+
+AGENT_JOB_MODE=local_stub
+AGENT_JOB_ROOT=/tmp/jbwm-agent-jobs
+CODEX_COMMAND=codex
+AGENT_JOB_CODEX_MODEL=gpt-5.4-mini
+AGENT_JOB_CODEX_REASONING_EFFORT=low
+AGENT_JOB_CODEX_MODEL_CANDIDATES=gpt-5.4-mini,gpt-5.5,gpt-5.3-codex-spark,gpt-5-mini,gpt-5-nano,gpt-5.1-codex-mini,gpt-5.2-codex
+AGENT_JOB_TIMEOUT_SECONDS=1800
+AGENT_JOB_OUTPUT_MAX_BYTES=200000
 
 FILE_STORAGE_DRIVER=local
 LOCAL_STORAGE_PATH=./storage

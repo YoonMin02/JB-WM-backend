@@ -35,8 +35,8 @@ Edit `.env`:
 
 ```dotenv
 REASONER=pydantic_ai
-CODEX_MODEL=gpt-5.4
-CODEX_MODEL_REASONING_EFFORT=high
+CODEX_MODEL=gpt-5.4-mini
+CODEX_MODEL_REASONING_EFFORT=low
 ```
 
 Run `codex login` once on the server, then restart the backend.

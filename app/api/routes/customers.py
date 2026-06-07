@@ -18,8 +18,14 @@ def _authorize(principal: Principal, customer_id: str) -> None:
 
 
 @router.get("")
-def list_customers(db: Session = Depends(db_session)) -> list[dict]:
-    rows = db.exec(select(Customer)).all()
+def list_customers(
+    db: Session = Depends(db_session),
+    principal: Principal = Depends(current_principal),
+) -> list[dict]:
+    if principal.role == "customer":
+        rows = db.exec(select(Customer).where(Customer.id == principal.customer_id)).all()
+    else:
+        rows = db.exec(select(Customer)).all()
     return [{"id": c.id, "name": c.name, "age_band": c.age_band} for c in rows]
 
 

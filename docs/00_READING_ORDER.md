@@ -1,22 +1,33 @@
 # 00 · 읽는 순서 & 용어집
 
-이 디렉토리는 JB WM 백엔드의 구현 컨텍스트입니다. 구현은 관련 설계 문서를 검토한 뒤 시작합니다.
+이 디렉토리는 JB WM 백엔드의 구현 컨텍스트입니다. 현재 브랜치의 source of
+truth는 `redesign/` 폴더입니다. 번호가 붙은 기존 문서는 제품 배경과 legacy
+MVP 맥락으로 읽고, 새 구현은 LangGraph + sandboxed agent job 문서를 우선합니다.
 
 ## 읽는 순서
 
-1. [`01_PRODUCT_CONTEXT.md`](01_PRODUCT_CONTEXT.md) — 제품 정의, 사용자, MVP 시나리오
-2. [`02_SYSTEM_ARCHITECTURE.md`](02_SYSTEM_ARCHITECTURE.md) — 전체 구조, 데이터 3분류, capability 보안
-3. [`03_STATE_MACHINE.md`](03_STATE_MACHINE.md) — 상태·전이·트리거·승인 게이트 (**서비스 로직의 본체**)
-4. [`04_AGENT_RUNTIME.md`](04_AGENT_RUNTIME.md) — 공급자 무관 에이전트 루프 + `AgentReasoner` 포트
-5. [`05_DATA_MODEL.md`](05_DATA_MODEL.md) — 엔티티와 영속화 모델
-6. [`06_TOOL_CONTRACTS.md`](06_TOOL_CONTRACTS.md) — 에이전트에 노출하는 도구 + 데이터 접근
-7. [`07_ACTION_EXECUTION.md`](07_ACTION_EXECUTION.md) — Policy Engine + 결정론적 Executor
-8. [`08_MEMORY.md`](08_MEMORY.md) — 단기/장기 메모리, 개인화
-9. [`09_API_SPEC.md`](09_API_SPEC.md) — REST 엔드포인트
-10. [`10_SECURITY_PRIVACY.md`](10_SECURITY_PRIVACY.md) — 규제, capability 보안
-11. [`11_IMPLEMENTATION_ROADMAP.md`](11_IMPLEMENTATION_ROADMAP.md) — MVP 마일스톤 구현 계획
-12. [`12_IMPLEMENTATION_CHECKLIST.md`](12_IMPLEMENTATION_CHECKLIST.md) — 문서 목표와 현재 코드 사이의 남은 구현 항목
-13. [`13_LLM_DECISION_CONTEXT.md`](13_LLM_DECISION_CONTEXT.md) — LLM 판단 컨텍스트, memory/compact, 정책 문서 설계
+1. [`redesign/README.md`](redesign/README.md) — 현재 브랜치 구현 가이드
+2. [`redesign/architecture.md`](redesign/architecture.md) — 레이어와 폴더 구조
+3. [`redesign/workflow.md`](redesign/workflow.md) — LangGraph 상태와 node flow
+4. [`redesign/security.md`](redesign/security.md) — namespace, sandboxing, 보안 불변식
+5. [`redesign/agent_jobs.md`](redesign/agent_jobs.md) — Codex-with-Gmail 방식의 CLI job runner
+6. [`redesign/react_demo.md`](redesign/react_demo.md) — 로컬 React 테스트 하네스
+7. [`redesign/testing.md`](redesign/testing.md) — QA/테스트 기준
+8. [`14_LANGGRAPH_AGENT_REDESIGN.md`](14_LANGGRAPH_AGENT_REDESIGN.md) — 초기 재기획 메모
+
+Legacy/MVP 배경 문서:
+
+- [`01_PRODUCT_CONTEXT.md`](01_PRODUCT_CONTEXT.md) — 제품 정의, 사용자, MVP 시나리오
+- [`02_SYSTEM_ARCHITECTURE.md`](02_SYSTEM_ARCHITECTURE.md) — 기존 MVP 구조
+- [`03_STATE_MACHINE.md`](03_STATE_MACHINE.md) — 기존 FSM 상태·전이
+- [`04_AGENT_RUNTIME.md`](04_AGENT_RUNTIME.md) — 기존 `AgentReasoner` 포트
+- [`05_DATA_MODEL.md`](05_DATA_MODEL.md) — 기존 엔티티와 영속화 모델
+- [`06_TOOL_CONTRACTS.md`](06_TOOL_CONTRACTS.md) — 기존 도구/데이터 접근
+- [`07_ACTION_EXECUTION.md`](07_ACTION_EXECUTION.md) — Policy Engine + Executor 배경
+- [`08_MEMORY.md`](08_MEMORY.md) — 단기/장기 메모리
+- [`09_API_SPEC.md`](09_API_SPEC.md) — 기존 REST 엔드포인트
+- [`10_SECURITY_PRIVACY.md`](10_SECURITY_PRIVACY.md) — 기존 보안/프라이버시 메모
+- [`13_LLM_DECISION_CONTEXT.md`](13_LLM_DECISION_CONTEXT.md) — 기존 LLM 판단 컨텍스트
 
 참고 자료 (번호 없음, 필요 시):
 - [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) — 환경변수
@@ -61,8 +72,12 @@
 | **Executor** | 승인된 액션을 실제 수행하는 결정론적 코드. **LLM을 거치지 않음** |
 | **Memory (단기)** | 진행 중 task, 승인 대기, 최근 대화 |
 | **Memory (장기)** | 고객 성향·선호·제약·지불의향 (개인화) |
-| **AgentReasoner** | 추론 백엔드의 공급자 무관 인터페이스 (포트) |
-| **PydanticAIReasoner** | `AgentReasoner`의 실제 LLM 구조화 출력 구현 |
+| **AgentThread** | opaque `graph_thread_id`와 고객/session scope를 묶는 namespace row |
+| **LangGraph Workflow** | 상태 오케스트레이션과 승인 interrupt/resume. 인증 경계가 아님 |
+| **AgentJob** | 이벤트마다 생성되는 독립 판단 worker 실행 단위 |
+| **DataSnapshot** | agent-facing redacted context pack과 hash |
+| **AgentReasoner** | legacy 추론 포트. 새 구현은 `app/agent_jobs` 사용 |
+| **PydanticAIReasoner** | legacy LLM 구조화 출력 구현. 새 런타임 source of truth 아님 |
 | **이중 capability 경계** | ① 실행 경계(실행 권한 없음) ② 의료 경계(의료 권고 생성 안 함). 프롬프트 가드레일과 대비 |
 
 ### 데이터 3분류 (자세히는 02, 06)

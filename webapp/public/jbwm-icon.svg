@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="JB-WM">
+  <rect width="512" height="512" rx="96" fill="#1d4f3a"/>
+  <path d="M118 326c26 32 66 52 111 52 79 0 143-64 143-143 0-31-10-60-27-83" fill="none" stroke="#f8faf7" stroke-width="34" stroke-linecap="round"/>
+  <path d="M151 183h124c40 0 72 32 72 72s-32 72-72 72h-62" fill="none" stroke="#d6b35a" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="118" y="284" fill="#f8faf7" font-family="Arial, sans-serif" font-size="94" font-weight="700">JB</text>
+</svg>
