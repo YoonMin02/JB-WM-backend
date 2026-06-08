@@ -1,64 +1,74 @@
-# 환경변수
+# Environment Variables
 
-`.env`로 런타임 설정을 관리합니다. `.env.example`만 커밋하고 `.env`는 gitignore. 변경 시 이 문서를 갱신합니다.
+`.env`로 런타임 설정을 관리합니다. `.env.example`만 커밋하고 `.env`는 로컬 전용입니다.
 
 ## Core
-| 변수 | 필수 | 설명 |
-|---|---|---|
-| `APP_ENV` | Yes | `local` / `dev` / `staging` / `prod` |
-| `APP_NAME` | No | 기본 `jb-wm-backend` |
-| `API_HOST` | No | 로컬 API 호스트 |
-| `API_PORT` | No | 로컬 API 포트 (기본 8000) |
-| `LOG_LEVEL` | No | 로깅 레벨 |
 
-## Database
-| 변수 | 필수 | 설명 |
+| 변수 | 기본 | 설명 |
 |---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL 연결 문자열 |
+| `APP_ENV` | `local` | 실행 환경 |
+| `APP_NAME` | `jb-wm-backend` | 앱 이름 |
+| `API_HOST` | `127.0.0.1` | 로컬 API 호스트 |
+| `API_PORT` | `8000` | 로컬 API 포트 |
+| `LOG_LEVEL` | `info` | 로깅 레벨 |
 
-## Auth
-| 변수 | 필수 | 설명 |
+## Database / Auth
+
+| 변수 | 기본 | 설명 |
 |---|---|---|
-| `JWT_SECRET` | Depends | JWT 사용 시 필수 |
+| `DATABASE_URL` | `postgresql://jbwm:jbwm@localhost:5432/jbwm_dev` | DB 연결 문자열 |
+| `JWT_SECRET` | `change-me` | JWT 서명 키 |
+
+## Reasoning
+
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `REASONER` | `stub` | legacy route용. 새 workflow는 `AGENT_JOB_MODE`를 사용 |
+| `CODEX_MODEL` | `gpt-5.4-mini` | Codex SDK에 넘길 모델명. 기본은 실측 성공한 빠른 모델 |
+| `CODEX_MODEL_REASONING_EFFORT` | `low` | Codex 모델 추론 effort. 토큰/지연을 줄이기 위해 낮게 둠 |
+| `LLM_MAX_CALLS_PER_MINUTE` | `30` | 분당 LLM 호출 한도. `0`이면 무제한 |
+| `LLM_MAX_CALLS_TOTAL` | `500` | 프로세스 총 LLM 호출 한도. `0`이면 무제한 |
+
+기본값은 `AGENT_JOB_MODE=local_stub`이라 로컬 데모와 테스트는 Codex 세션 없이 동작합니다.
+
+## LangGraph Agent Jobs
+
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `AGENT_JOB_MODE` | `local_stub` | `local_stub` 또는 `codex_cli` |
+| `AGENT_JOB_ROOT` | `/tmp/jbwm-agent-jobs` | job별 `context.json`/`output.json` 작업 디렉터리 |
+| `CODEX_COMMAND` | `codex` | `codex_cli` 모드에서 실행할 CLI command |
+| `AGENT_JOB_CODEX_MODEL` | `gpt-5.4-mini` | `codex_cli`에서 `codex exec --model`로 넘길 모델 |
+| `AGENT_JOB_CODEX_REASONING_EFFORT` | `low` | `codex_cli`에서 `model_reasoning_effort`로 넘길 값 |
+| `AGENT_JOB_CODEX_MODEL_CANDIDATES` | `gpt-5.4-mini,...` | 벤치 스크립트가 순차 측정할 후보 목록 |
+| `AGENT_JOB_TIMEOUT_SECONDS` | `1800` | agent child process timeout |
+| `AGENT_JOB_OUTPUT_MAX_BYTES` | `200000` | 구조화 출력 최대 크기 |
+
+`codex_cli`는 `temp/Codex_with_Gmail`의 process-spawn 패턴을 JB-WM에 맞게 제한한 모드입니다. child env에는 DB/API secret을 넣지 않습니다.
+현재 로컬 벤치 결과는 [`docs/redesign/codex_cli_model_benchmark.md`](redesign/codex_cli_model_benchmark.md)에 기록합니다.
+
+## Storage / Policy
+
+| 변수 | 기본 | 설명 |
+|---|---|---|
+| `FILE_STORAGE_DRIVER` | `local` | 파일 저장소 driver |
+| `LOCAL_STORAGE_PATH` | `./storage` | 로컬 저장 경로 |
+| `POLICY_DOCS_PATH` | `./policy_docs` | LLM 판단에 주입할 내규/정책 문서 경로 |
 
 ## Privacy
-| 변수 | 필수 | 기본 | 설명 |
-|---|---|---|---|
-| `PRIVACY_SENSITIVE_RETENTION_DAYS` | No | `365` | 민감 transcript 보유일수. 초과 `AgentMessage`는 purge 대상 |
 
-## Codex / 추론
-| 변수 | 필수 | 기본 | 설명 |
-|---|---|---|---|
-| `REASONER` | No | `stub` | 추론 백엔드 선택. `stub`(규칙·무료·결정론적) / `codex`(실제 LLM). 테스트는 항상 stub |
-| `CODEX_MODEL` | No | `gpt-5.4` | codex일 때 모델. 사용 가능: gpt-5.5 / gpt-5.4 / gpt-5.4-mini / gpt-5.3-codex / gpt-5.2 |
-| `CODEX_MAX_CALLS_PER_MINUTE` | No | `30` | 분당 Codex 호출 한도 (쿼터 보호). 초과 시 API 429. `0`=무제한 |
-| `CODEX_MAX_CALLS_TOTAL` | No | `500` | 프로세스 총 Codex 호출 한도. `0`=무제한 |
-| `OPENAI_API_KEY` | No | — | **선택**. `codex login` OAuth 세션이 있으면 불필요. CLI 세션 없는 환경(CI 등)에서만 `login_api_key`용 |
-| `CODEX_WORKING_DIRECTORY` | No | `./workspace` | 에이전트 워크스페이스 루트 (세션별 하위 디렉토리 생성) |
-| `CODEX_WORKSPACE_INCLUDE_SNAPSHOTS` | No | `false` | 고객 JSON 스냅샷을 workspace에 쓸지 여부. 기본은 MCP read tools만 사용해 민감 데이터 파일화를 최소화 |
-
-> 기본 경로는 **OAuth 세션 재사용**입니다 ([CODEX_ADAPTER.md](CODEX_ADAPTER.md) 인증). `OPENAI_API_KEY`는 대체 수단일 뿐 필수가 아닙니다.
-> 호출 한도는 `app/agent/codex_adapter.py`의 rate guard가 강제합니다.
-
-## Storage
-| 변수 | 필수 | 설명 |
+| 변수 | 기본 | 설명 |
 |---|---|---|
-| `FILE_STORAGE_DRIVER` | No | `local` (MVP) / `s3` / `r2` |
-| `LOCAL_STORAGE_PATH` | No | 로컬 파일 경로 |
-| `POLICY_DOCS_PATH` | No | 규정·약관 파일 디렉토리 (③ 비정형, read-only 워크스페이스에 동기화) |
+| `PRIVACY_SENSITIVE_RETENTION_DAYS` | `365` | 민감 transcript 보유일수 |
 
-## Statistics
+## Action Execution
 
-현재 통계는 `PopulationStat` 시드 데이터와 `get_population_stat` MCP read tool로 제공합니다.
-별도 통계 파일 경로 환경변수는 아직 `Settings`에 연결되어 있지 않습니다.
-
-## Queue / 관측 (나중)
-| 변수 | 필수 | 설명 |
+| 변수 | 기본 | 설명 |
 |---|---|---|
-| `REDIS_URL` | Later | 이벤트 큐/캐시 |
-| `SENTRY_DSN` | No | 에러 추적 |
+| `ACTION_EXECUTION_MODE` | `mock_apply` | `mock_apply`: mock DB에 반영. `external_request`: 실제 외부 실행 요청 모드, 현재 미구현 |
 
-## `.env.example`
+## Example
+
 ```dotenv
 APP_ENV=local
 APP_NAME=jb-wm-backend
@@ -70,17 +80,24 @@ DATABASE_URL=postgresql://jbwm:jbwm@localhost:5432/jbwm_dev
 JWT_SECRET=change-me
 PRIVACY_SENSITIVE_RETENTION_DAYS=365
 
-# 추론: stub(기본, 무료·결정론적) / codex(실제 LLM)
 REASONER=stub
-CODEX_MODEL=gpt-5.4
-CODEX_MAX_CALLS_PER_MINUTE=30
-CODEX_MAX_CALLS_TOTAL=500
-# Codex: codex login OAuth 세션 사용 시 불필요
-# OPENAI_API_KEY=sk-...
-CODEX_WORKING_DIRECTORY=./workspace
-CODEX_WORKSPACE_INCLUDE_SNAPSHOTS=false
+CODEX_MODEL=gpt-5.4-mini
+CODEX_MODEL_REASONING_EFFORT=low
+LLM_MAX_CALLS_PER_MINUTE=30
+LLM_MAX_CALLS_TOTAL=500
+
+AGENT_JOB_MODE=local_stub
+AGENT_JOB_ROOT=/tmp/jbwm-agent-jobs
+CODEX_COMMAND=codex
+AGENT_JOB_CODEX_MODEL=gpt-5.4-mini
+AGENT_JOB_CODEX_REASONING_EFFORT=low
+AGENT_JOB_CODEX_MODEL_CANDIDATES=gpt-5.4-mini,gpt-5.5,gpt-5.3-codex-spark,gpt-5-mini,gpt-5-nano,gpt-5.1-codex-mini,gpt-5.2-codex
+AGENT_JOB_TIMEOUT_SECONDS=1800
+AGENT_JOB_OUTPUT_MAX_BYTES=200000
 
 FILE_STORAGE_DRIVER=local
 LOCAL_STORAGE_PATH=./storage
 POLICY_DOCS_PATH=./policy_docs
+
+ACTION_EXECUTION_MODE=mock_apply
 ```

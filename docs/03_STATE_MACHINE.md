@@ -51,6 +51,7 @@ stateDiagram-v2
 
     ExecuteAction --> VerifyResult
     VerifyResult --> UpdateMemory
+    VerifyResult --> NeedApproval: 다음 승인 제안 있음
     PreferenceUpdate --> UpdateMemory
     NoAction --> UpdateMemory
     UpdateMemory --> Monitoring
@@ -144,7 +145,8 @@ stateDiagram-v2
 | RevisePlan | GeneratePlan | 수정 요청 반영 | Orchestrator |
 | AutoExecutable | ExecuteAction | 자동 | 상태머신 |
 | ExecuteAction | VerifyResult / Failed | Executor 실행 결과 | Executor |
-| VerifyResult / NoAction / PreferenceUpdate / Failed | UpdateMemory | — | 상태머신 |
+| VerifyResult | NeedApproval / UpdateMemory | 다음 승인 제안 존재 여부 | 상태머신 |
+| NoAction / PreferenceUpdate / Failed | UpdateMemory | — | 상태머신 |
 | UpdateMemory | Monitoring | 루프 종료 | 상태머신 |
 
 ## LLM 관여 지점
@@ -185,7 +187,7 @@ investment_adjust_need = DEFERRED
 ## 영속화 필드 (세션)
 
 `AgentSession` 핵심 필드: `id`, `customer_id`, `state`, `active_needs`,
-`agent_thread_id`, `pending_proposal_id`, `recent_context`, `created_at`, `updated_at`.
+`pending_proposal_id`, `recent_context`, `created_at`, `updated_at`.
 
 `active_needs`는 `primary_need`와 각 need level을 담는 JSON입니다. FSM 상태가 아니라
 `AssessNeed` 결과의 세션 스냅샷입니다.

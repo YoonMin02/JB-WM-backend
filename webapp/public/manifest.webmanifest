@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "JB-WM Agent Runtime",
+  "short_name": "JB-WM",
+  "description": "고객 금융 이벤트를 분석하고 승인된 일만 처리하는 자산관리 에이전트 데모",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8faf7",
+  "theme_color": "#1d4f3a",
+  "icons": [
+    {
+      "src": "/jbwm-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

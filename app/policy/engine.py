@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.agent.schemas import ActionProposalSchema
+from app.planning.schemas import ActionProposalSchema
 
 # 외부 효과가 명백한 고위험 액션 종류 (외부 효과 플래그와 별개로 강제 승인)
 HIGH_RISK_KINDS = {"book_hospital", "submit_claim", "transfer_money", "rebalance_portfolio"}

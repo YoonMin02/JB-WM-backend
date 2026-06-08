@@ -1,0 +1,119 @@
+{
+  "run_id": "20260607T120659Z",
+  "created_at": "2026-06-07T12:07:46.281969+00:00",
+  "codex_command": "codex",
+  "effort": "low",
+  "results": [
+    {
+      "model": "gpt-5.4-mini",
+      "effort": "low",
+      "supported": true,
+      "returncode": 0,
+      "duration_seconds": 9.496,
+      "output_bytes": 86,
+      "usage": {
+        "input_tokens": 18994,
+        "cached_input_tokens": 2432,
+        "output_tokens": 48,
+        "reasoning_output_tokens": 10
+      },
+      "output_json": {
+        "ok": true,
+        "model_candidate": "gpt-5.4-mini",
+        "message": "요청을 반영했습니다."
+      },
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:07.241313Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:07.241692Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:07.241696Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:07.242043Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:07.242047Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:07.242447Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:07.242451Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:07.243357Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:07.243361Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fa-ac35-7040-99b0-d4b3f8a17d09\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"{\\\"ok\\\":true,\\\"model_candidate\\\":\\\"gpt-5.4-mini\\\",\\\"message\\\":\\\"요청을 반영했습니다.\\\"}\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":18994,\"cached_input_tokens\":2432,\"output_tokens\":48,\"reasoning_output_tokens\":10}}\n"
+    },
+    {
+      "model": "gpt-5.5",
+      "effort": "low",
+      "supported": true,
+      "returncode": 0,
+      "duration_seconds": 12.39,
+      "output_bytes": 97,
+      "usage": {
+        "input_tokens": 20728,
+        "cached_input_tokens": 2432,
+        "output_tokens": 75,
+        "reasoning_output_tokens": 37
+      },
+      "output_json": {
+        "ok": true,
+        "model_candidate": "gpt-5.5",
+        "message": "요청을 정상적으로 처리했습니다."
+      },
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:18.585815Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:18.586134Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:18.586138Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:18.586464Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:18.586467Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:18.586877Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:18.586881Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:18.587583Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:18.587587Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fa-cfd5-7ac2-8098-06950553efa9\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"{\\\"ok\\\":true,\\\"model_candidate\\\":\\\"gpt-5.5\\\",\\\"message\\\":\\\"요청을 정상적으로 처리했습니다.\\\"}\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":20728,\"cached_input_tokens\":2432,\"output_tokens\":75,\"reasoning_output_tokens\":37}}\n"
+    },
+    {
+      "model": "gpt-5.3-codex-spark",
+      "effort": "low",
+      "supported": true,
+      "returncode": 0,
+      "duration_seconds": 8.979,
+      "output_bytes": 153,
+      "usage": {
+        "input_tokens": 16626,
+        "cached_input_tokens": 2176,
+        "output_tokens": 91,
+        "reasoning_output_tokens": 38
+      },
+      "output_json": {
+        "ok": true,
+        "model_candidate": "gpt-5.3-codex-spark",
+        "message": "요청을 확인했습니다. 변경 사항을 반영해 작업을 진행하겠습니다."
+      },
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:29.019709Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:29.020049Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:29.020054Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:29.020384Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:29.020388Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:29.020789Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:29.020792Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:29.021571Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:29.021575Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fb-0058-7cf1-8e8f-926f9ee56adc\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"{\\\"ok\\\":true,\\\"model_candidate\\\":\\\"gpt-5.3-codex-spark\\\",\\\"message\\\":\\\"요청을 확인했습니다. 변경 사항을 반영해 작업을 진행하겠습니다.\\\"}\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":16626,\"cached_input_tokens\":2176,\"output_tokens\":91,\"reasoning_output_tokens\":38}}\n"
+    },
+    {
+      "model": "gpt-5-mini",
+      "effort": "low",
+      "supported": false,
+      "returncode": 1,
+      "duration_seconds": 5.847,
+      "output_bytes": 0,
+      "usage": null,
+      "output_json": null,
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:35.733450Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:35.734160Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:35.734175Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:35.734974Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:35.734980Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:35.735558Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:35.735564Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:35.736685Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:35.736691Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fb-2350-7422-89e8-13fbc222c5dc\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"error\",\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5-mini' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5-mini' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}}\n"
+    },
+    {
+      "model": "gpt-5-nano",
+      "effort": "low",
+      "supported": false,
+      "returncode": 1,
+      "duration_seconds": 3.547,
+      "output_bytes": 0,
+      "usage": null,
+      "output_json": null,
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:39.185884Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:39.186294Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:39.186297Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:39.186643Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:39.186647Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:39.186995Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:39.186998Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:39.187862Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:39.187865Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fb-3a0d-76a3-a4e8-843cb3ee554c\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"error\",\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5-nano' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5-nano' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}}\n"
+    },
+    {
+      "model": "gpt-5.1-codex-mini",
+      "effort": "low",
+      "supported": false,
+      "returncode": 1,
+      "duration_seconds": 3.198,
+      "output_bytes": 0,
+      "usage": null,
+      "output_json": null,
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:42.462257Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:42.462630Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:42.462635Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:42.462968Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:42.462971Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:42.463345Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:42.463348Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:42.464104Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:42.464107Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fb-47f9-7060-8ef9-298d7b7ce7d7\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"error\",\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5.1-codex-mini' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5.1-codex-mini' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}}\n"
+    },
+    {
+      "model": "gpt-5.2-codex",
+      "effort": "low",
+      "supported": false,
+      "returncode": 1,
+      "duration_seconds": 3.071,
+      "output_bytes": 0,
+      "usage": null,
+      "output_json": null,
+      "stderr_tail": "core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:45.586061Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:45.586435Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:45.586439Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:45.586771Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:45.586774Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:45.587115Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:45.587118Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n2026-06-07T12:07:45.587834Z  WARN codex_core_skills::loader: ignoring interface.icon_small: icon path must not contain '..'\n2026-06-07T12:07:45.587837Z  WARN codex_core_skills::loader: ignoring interface.icon_large: icon path must not contain '..'\n",
+      "stdout_tail": "{\"type\":\"thread.started\",\"thread_id\":\"019ea1fb-54e0-7f11-b033-79b309c60525\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"error\",\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5.2-codex' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"{\\\"type\\\":\\\"error\\\",\\\"status\\\":400,\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"message\\\":\\\"The 'gpt-5.2-codex' model is not supported when using Codex with a ChatGPT account.\\\"}}\"}}\n"
+    }
+  ]
+}

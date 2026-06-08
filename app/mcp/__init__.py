@@ -1,1 +1,0 @@
-"""MCP read-tool bridge."""

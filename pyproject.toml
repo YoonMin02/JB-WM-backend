@@ -10,10 +10,12 @@ dependencies = [
     "sqlmodel>=0.0.22",
     "alembic>=1.14",
     "pydantic>=2.12",
+    "pydantic-ai-slim>=1.20",
     "pydantic-settings>=2.7",
     "python-dotenv>=1.0",
     "httpx>=0.28",
     "psycopg2-binary>=2.9",
+    "langgraph>=1.0",
 ]
 
 [dependency-groups]

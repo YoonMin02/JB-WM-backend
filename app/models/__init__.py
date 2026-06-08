@@ -26,6 +26,7 @@ from app.models.insurance import CoverageItem, InsurancePolicy
 from app.models.memory import CustomerMemory
 from app.models.privacy import ConsentRecord
 from app.models.stats import PopulationStat
+from app.models.workflow import AgentJob, AgentThread, DataSnapshot
 
 __all__ = [
     "Customer",
@@ -54,4 +55,7 @@ __all__ = [
     "AgentMessage",
     "NeedAssessmentRecord",
     "PlanRecord",
+    "AgentThread",
+    "DataSnapshot",
+    "AgentJob",
 ]

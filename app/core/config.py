@@ -24,21 +24,35 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me"
     privacy_sensitive_retention_days: int = 365
 
-    # Codex / 추론
-    # 'stub' = 결정론적 가짜(테스트/데모), 'codex' = 실제 Codex SDK
-    reasoner: Literal["stub", "codex"] = "stub"
-    openai_api_key: str | None = None
-    codex_working_directory: str = "./workspace"
-    codex_workspace_include_snapshots: bool = False
-    codex_model: str = "gpt-5.4"  # 사용 가능: gpt-5.5/5.4/5.4-mini/5.3-codex/5.2
+    # Reasoning
+    # 'stub' = 결정론적 가짜(테스트/데모), 'pydantic_ai' = PydanticAI + Codex SDK transport
+    reasoner: Literal["stub", "pydantic_ai"] = "stub"
+    codex_model: str = "gpt-5.4-mini"
+    codex_model_reasoning_effort: str = "low"
     # 호출 횟수 가드 (쿼터 보호 — 넉넉하게). 0 = 무제한
-    codex_max_calls_per_minute: int = 30
-    codex_max_calls_total: int = 500
+    llm_max_calls_per_minute: int = 30
+    llm_max_calls_total: int = 500
 
     # Storage
     file_storage_driver: str = "local"
     local_storage_path: str = "./storage"
     policy_docs_path: str = "./policy_docs"
+
+    # Action execution
+    # mock_apply = 승인 시 mock DB에 반영, external_request = 실제 외부 실행 요청(현재 미구현)
+    action_execution_mode: Literal["mock_apply", "external_request"] = "mock_apply"
+
+    # Redesign runtime
+    agent_job_mode: Literal["local_stub", "codex_cli"] = "local_stub"
+    agent_job_root: str = "/tmp/jbwm-agent-jobs"
+    codex_command: str = "codex"
+    agent_job_codex_model: str = "gpt-5.4-mini"
+    agent_job_codex_reasoning_effort: str = "low"
+    agent_job_codex_model_candidates: str = (
+        "gpt-5.4-mini,gpt-5.5,gpt-5.3-codex-spark,gpt-5-mini,gpt-5-nano,gpt-5.1-codex-mini,gpt-5.2-codex"
+    )
+    agent_job_timeout_seconds: int = 1800
+    agent_job_output_max_bytes: int = 200_000
 
 
 @lru_cache

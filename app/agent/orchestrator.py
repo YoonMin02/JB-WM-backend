@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from sqlmodel import Session
 
+from app.agent.context_builder import build_agent_context
 from app.agent.runtime import AgentReasoner, get_reasoner
 from app.agent.schemas import NeedAssessment, Plan
 from app.executor.handlers import execute as executor_execute
@@ -24,7 +25,6 @@ from app.models.memory import CustomerMemory
 from app.policy.engine import evaluate
 from app.state_machine.machine import log_event, transition
 from app.state_machine.states import State
-from app.tools.data_tools import build_context
 
 
 class Orchestrator:
@@ -47,15 +47,11 @@ class Orchestrator:
         transition(db, session, State.SIGNAL_DETECTED, detail={"source": source})
         transition(db, session, State.ASSESS_NEED)
 
-        ctx = build_context(db, session.customer_id)
-        ctx["agent_session_id"] = session.id
-        log_event(db, session.id, "tool_call", {"tool": "build_context"})
-        await self._ensure_reasoner_session(db, session, ctx)
+        signal = {"source": source, "payload": payload}
+        ctx = build_agent_context(db, session, current_signal=signal)
+        log_event(db, session.id, "context_pack", {"builder": "build_agent_context"})
 
-        assessment = await self.reasoner.assess_need(
-            {"source": source, "payload": payload}, ctx, session.agent_thread_id
-        )
-        self._sync_thread_ref(db, session)
+        assessment = await self.reasoner.assess_need(signal, ctx)
         log_event(db, session.id, "need_assessment", assessment.model_dump())
         self._record_assessment(db, session, assessment)
 
@@ -85,8 +81,7 @@ class Orchestrator:
 
         # 계획 생성 (장기 메모리 반영 = 개인화)
         transition(db, session, State.GENERATE_PLAN)
-        plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}), session.agent_thread_id)
-        self._sync_thread_ref(db, session)
+        plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}))
         plan.assessment = assessment
         log_event(db, session.id, "plan", plan.model_dump())
         proposals = self._persist_plan(db, session, plan)
@@ -151,17 +146,35 @@ class Orchestrator:
         if decision == "approve":
             transition(db, session, State.EXECUTE_ACTION, detail={"proposal_id": proposal.id})
             execution = executor_execute(db, proposal)  # ★ 실행은 여기, LLM 안 거침
+            log_event(db, session.id, "approval", {"proposal_id": proposal.id, "decision": "approve"})
             log_event(db, session.id, "execution", {"proposal_id": proposal.id, "status": execution.status})
             target = State.VERIFY_RESULT if execution.status == "success" else State.FAILED
             transition(db, session, target)
             session.pending_proposal_id = None
+            if execution.status == "success":
+                next_pending = self._next_pending_proposal(db, session)
+                if next_pending is not None:
+                    session.pending_proposal_id = next_pending.id
+                    db.add(session)
+                    db.commit()
+                    transition(db, session, State.NEED_APPROVAL, detail={"proposal_id": next_pending.id})
+                    transition(db, session, State.USER_APPROVAL)
+                    return session
             return self._finish(db, session)
 
         if decision == "reject":
             proposal.status = "rejected"
             db.add(proposal)
-            transition(db, session, State.NO_ACTION, detail={"proposal_id": proposal.id})
+            log_event(db, session.id, "approval", {"proposal_id": proposal.id, "decision": "reject"})
             session.pending_proposal_id = None
+            next_pending = self._next_pending_proposal(db, session)
+            if next_pending is not None:
+                session.pending_proposal_id = next_pending.id
+                db.add(session)
+                db.commit()
+                db.refresh(session)
+                return session
+            transition(db, session, State.NO_ACTION, detail={"proposal_id": proposal.id})
             return self._finish(db, session)
 
         if decision == "revise":
@@ -169,13 +182,14 @@ class Orchestrator:
             db.add(proposal)
             transition(db, session, State.REVISE_PLAN, detail={"note": note})
             # 재계획: 의도 유지하고 plan 재생성
-            ctx = build_context(db, session.customer_id)
-            ctx["agent_session_id"] = session.id
-            await self._ensure_reasoner_session(db, session, ctx)
+            ctx = build_agent_context(
+                db,
+                session,
+                current_signal={"source": "approval_revision", "payload": {"note": note}},
+            )
             assessment = self._assessment_from_session(session)
             transition(db, session, State.GENERATE_PLAN)
-            plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}), session.agent_thread_id)
-            self._sync_thread_ref(db, session)
+            plan = await self.reasoner.generate_plan(assessment, ctx, ctx.get("memory", {}))
             log_event(db, session.id, "plan", {"revised": True, **plan.model_dump()})
             proposals = self._persist_plan(db, session, plan)
             self._record_plan(db, session, plan, proposals, revised=True)
@@ -204,6 +218,21 @@ class Orchestrator:
         db.commit()
         log_event(db, session.id, "memory", {"updated": True})
 
+    def _next_pending_proposal(self, db: Session, session: AgentSession) -> ActionProposal | None:
+        """현재 세션에서 아직 승인 대기 가능한 다음 외부효과 제안을 찾는다."""
+        from sqlmodel import select
+
+        proposals = db.exec(
+            select(ActionProposal).where(
+                ActionProposal.session_id == session.id,
+                ActionProposal.status == "proposed",
+            ).order_by(ActionProposal.created_at)
+        ).all()
+        for proposal in proposals:
+            if evaluate_needs_approval(proposal):
+                return proposal
+        return None
+
     def _need_levels(self, assessment: NeedAssessment) -> dict[str, str]:
         return {
             "medical_cost_need": assessment.medical_cost_need,
@@ -223,26 +252,6 @@ class Orchestrator:
             primary_need=session.active_needs.get("primary_need", "none") if session.active_needs else "none",
             **{k: v for k, v in needs.items() if k.endswith("_need")},
         )
-
-    def _sync_thread_ref(self, db: Session, session: AgentSession) -> None:
-        thread_id = getattr(self.reasoner, "last_thread_id", None)
-        if thread_id and thread_id != session.agent_thread_id:
-            session.agent_thread_id = thread_id
-            db.add(session)
-            db.commit()
-            db.refresh(session)
-
-    async def _ensure_reasoner_session(self, db: Session, session: AgentSession, ctx: dict) -> None:
-        if session.agent_thread_id:
-            await self.reasoner.resume_session(session.agent_thread_id)
-            self._sync_thread_ref(db, session)
-            return
-        thread_id = await self.reasoner.start_session(session.customer_id, ctx)
-        session.agent_thread_id = thread_id
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        log_event(db, session.id, "thread", {"thread_id": thread_id, "action": "start"})
 
     def _record_assessment(self, db: Session, session: AgentSession, assessment: NeedAssessment) -> None:
         db.add(
