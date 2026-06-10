@@ -70,9 +70,10 @@ webapp/
   로컬 React 검증 화면이다. 운영 UI가 아니라 흐름 확인용 테스트 하네스다.
 ```
 
-`app/agent/*`와 `app/state_machine/*`는 이전 MVP runtime이다. 기존 API와 테스트가
-아직 사용하므로 바로 삭제하지 않는다. 새 구현은 `app/workflows/`,
-`app/agent_jobs/`, `app/planning/`, `app/security/`를 기준으로 확장한다.
+공식 실행 경로는 `app/workflows/`, `app/agent_jobs/`, `app/planning/`,
+`app/security/`, `app/policy/`, `app/executor/`다. 고객 대면 세션 상태는
+`app/workflows/session_state.py`의 작은 enum으로만 관리하고, 내부 흐름의 기준은
+LangGraph node/edge다.
 
 ## 중요한 설계 결론
 

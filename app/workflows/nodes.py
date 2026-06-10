@@ -30,6 +30,7 @@ from app.policy.engine import evaluate
 from app.signals.detectors import detect_signal
 from app.signals.schemas import SignalEnvelope
 from app.workflows.state import WMGraphState
+from app.workflows.session_state import SessionState
 
 
 def data_refresh(state: WMGraphState, config: RunnableConfig) -> dict[str, Any]:
@@ -170,10 +171,10 @@ def policy_check(state: WMGraphState, config: RunnableConfig) -> dict[str, Any]:
 
     if pending is not None:
         session.pending_proposal_id = pending.id
-        session.state = "UserApproval"
+        session.state = SessionState.USER_APPROVAL
     else:
         session.pending_proposal_id = None
-        session.state = "Monitoring"
+        session.state = SessionState.MONITORING
     session.active_needs = {"primary_need": assessment.primary_need, "needs": _need_levels(assessment)}
     session.recent_context = {
         "assessment": assessment.model_dump(),
@@ -280,7 +281,7 @@ def execute_action(state: WMGraphState, config: RunnableConfig) -> dict[str, Any
 
     next_pending = _next_pending_proposal(db, session)
     session.pending_proposal_id = next_pending.id if next_pending is not None else None
-    session.state = "UserApproval" if next_pending is not None else "Monitoring"
+    session.state = SessionState.USER_APPROVAL if next_pending is not None else SessionState.MONITORING
     session.updated_at = utcnow()
     db.add(session)
     db.commit()
@@ -310,7 +311,7 @@ def update_memory(state: WMGraphState, config: RunnableConfig) -> dict[str, Any]
     memory.updated_at = utcnow()
     session.updated_at = utcnow()
     if not session.pending_proposal_id:
-        session.state = "Monitoring"
+        session.state = SessionState.MONITORING
         session.active_needs = {}
     db.add(memory)
     db.add(session)

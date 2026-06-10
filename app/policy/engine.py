@@ -1,6 +1,6 @@
 """Policy Engine — 리스크 평가 → auto vs 고객승인 라우팅.
 
-코드 규칙이다. 프롬프트로 LLM에 부탁하는 방식이 아니다. (docs/07_ACTION_EXECUTION)
+코드 규칙이다. 프롬프트로 agent에게 부탁하는 방식이 아니다.
 """
 from __future__ import annotations
 

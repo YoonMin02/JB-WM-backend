@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.api.deps import current_principal, db_session
-from app.core.auth import Principal
+from app.core.auth import Principal, require_operator
 from app.workflows import service
 
 router = APIRouter(tags=["langgraph-workflows"])
@@ -57,6 +57,7 @@ def get_workflow_debug(
     db: Session = Depends(db_session),
     principal: Principal = Depends(current_principal),
 ) -> dict:
+    require_operator(principal)
     return service.debug_thread(db, thread_id, principal)
 
 
@@ -67,6 +68,7 @@ def post_workflow_event(
     db: Session = Depends(db_session),
     principal: Principal = Depends(current_principal),
 ) -> dict:
+    require_operator(principal)
     return service.trigger_event(
         db,
         graph_thread_id=thread_id,
@@ -83,6 +85,7 @@ def stream_workflow_event(
     db: Session = Depends(db_session),
     principal: Principal = Depends(current_principal),
 ) -> StreamingResponse:
+    require_operator(principal)
     return _sse_response(
         service.stream_event(
             db,

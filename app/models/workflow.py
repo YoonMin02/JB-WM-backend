@@ -1,8 +1,7 @@
 """LangGraph redesign persistence models.
 
 These tables keep customer/thread ownership and agent-job artifacts outside the
-LLM process. They are deliberately small so they can coexist with legacy
-AgentSession/ActionProposal tables during migration.
+agent process.
 """
 from __future__ import annotations
 

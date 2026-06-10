@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from dataclasses import dataclass
 from typing import Literal
@@ -14,6 +15,7 @@ from fastapi import HTTPException
 from app.core.config import settings
 
 Role = Literal["customer", "advisor", "operator"]
+PASSWORD_ITERATIONS = 120_000
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,33 @@ def create_jwt(
     return f"{signing_input}.{_b64_bytes(signature)}"
 
 
+def hash_password(password: str) -> str:
+    salt = secrets.token_urlsafe(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PASSWORD_ITERATIONS,
+    )
+    return f"pbkdf2_sha256${PASSWORD_ITERATIONS}${salt}${_b64_bytes(digest)}"
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        algorithm, iterations_raw, salt, expected = password_hash.split("$", 3)
+        if algorithm != "pbkdf2_sha256":
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            int(iterations_raw),
+        )
+        return hmac.compare_digest(_b64_bytes(digest), expected)
+    except Exception:
+        return False
+
+
 def verify_jwt(token: str) -> Principal:
     try:
         header_b64, payload_b64, signature_b64 = token.split(".")
@@ -80,6 +109,12 @@ def require_customer_access(principal: Principal, customer_id: str) -> None:
     if principal.role == "customer" and principal.customer_id == customer_id:
         return
     raise HTTPException(403, "해당 고객 데이터에 접근할 권한이 없습니다.")
+
+
+def require_operator(principal: Principal) -> None:
+    if principal.role == "operator":
+        return
+    raise HTTPException(403, "operator 권한이 필요합니다.")
 
 
 def _b64(data: dict) -> str:

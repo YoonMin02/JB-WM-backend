@@ -62,10 +62,9 @@ stateDiagram-v2
     Monitoring --> Monitoring: 자동 처리 또는 조치 없음
 ```
 
-이 구조는 FSM의 성격을 갖지만, 예전 `docs/03_STATE_MACHINE.md`처럼
-`State enum -> transition table`을 직접 관리하는 방식은 아니다. 상태 흐름의 기준은
-LangGraph node/edge이며, 고객 대면 상태는 workflow 결과를 사용자 언어로 요약한
-표현이다.
+이 구조는 FSM의 성격을 갖지만, 상태 전이표를 직접 관리하지 않는다. 상태 흐름의
+기준은 LangGraph node/edge이며, 고객 대면 상태는 workflow 결과를 사용자 언어로
+요약한 표현이다.
 
 각 단계는 한 덩어리의 "에이전트 작업"이 아니다. 코드가 먼저 데이터를 모으고
 이벤트를 분류한 뒤, 그 결과를 단일 고객 context로 묶어 agent job에 넘긴다. agent는

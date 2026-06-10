@@ -1,7 +1,6 @@
-"""Executor — 승인/자동 액션의 실제 실행. LLM을 거치지 않는다.
+"""Executor — 승인/자동 액션의 실제 실행. Agent job을 거치지 않는다.
 
 실행 권한(자격증명·외부 API)은 여기에만 존재한다. MVP는 전부 mock.
-(docs/07_ACTION_EXECUTION)
 """
 from __future__ import annotations
 
