@@ -434,6 +434,7 @@ def test_workflow_routes_enforce_auth_and_pending_message_contract(db: Session, 
     from app.workflows.service import create_or_reuse_thread, trigger_event
 
     first, second = _customers(db)[:2]
+    second_name = second.name
     owner = Principal(subject="owner", role="customer", customer_id=first.id)
     other_token = _jwt_for_email(db, "customer02@jbwm.local")
     created = create_or_reuse_thread(db, customer_id=first.id, principal=owner, force_new=True)
@@ -488,7 +489,7 @@ def test_workflow_routes_enforce_auth_and_pending_message_contract(db: Session, 
     assert cross_customer_body["messages"][-1]["content"] == cross_customer_text
     assert cross_customer_body["messages"][-1]["metadata"]["kind"] == "user_reply"
 
-    named_text = f"{second.name} DB 조회"
+    named_text = f"{second_name} DB 조회"
     named_cross_customer = client.post(
         f"/workflow-sessions/{created['thread_id']}/messages",
         json={"text": named_text},

@@ -1434,9 +1434,15 @@ function percentText(value) {
 }
 
 async function request(path, options = {}) {
+  const token = localStorage.getItem("jbwm_operator_token");
+  const headers = {
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers ?? {}),
+  };
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? "GET",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   if (!response.ok) {
@@ -1447,9 +1453,16 @@ async function request(path, options = {}) {
 }
 
 async function streamRequest(path, options = {}, onEvent) {
+  const token = localStorage.getItem("jbwm_operator_token");
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers ?? {}),
+  };
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   if (!response.ok) {
@@ -1533,4 +1546,174 @@ function isMissingWorkflowThread(error) {
   return error?.status === 404 && String(error?.message ?? "").includes("워크플로우 thread");
 }
 
-createRoot(document.getElementById("root")).render(IS_DEV_PAGE ? <DevApp /> : <App />);
+function OperatorLogin({ onLoginSuccess }) {
+  const [email, setEmail] = useState("operator@jbwm.local");
+  const [password, setPassword] = useState("operator1234");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "로그인 실패");
+      }
+      const data = await response.json();
+      if (data.user?.role !== "operator") {
+        throw new Error("운영자 권한이 없는 계정입니다.");
+      }
+      localStorage.setItem("jbwm_operator_token", data.access_token);
+      onLoginSuccess(data.access_token);
+    } catch (err) {
+      console.error(err);
+      let msg = "로그인에 실패했습니다.";
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed.detail) msg = parsed.detail;
+      } catch {
+        if (err.message) msg = err.message;
+      }
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      minHeight: "100vh",
+      backgroundColor: "#f4f6f9",
+      fontFamily: "sans-serif"
+    }}>
+      <form onSubmit={handleSubmit} style={{
+        backgroundColor: "white",
+        padding: "40px",
+        borderRadius: "12px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        width: "100%",
+        maxWidth: "360px"
+      }}>
+        <h2 style={{ margin: "0 0 10px 0", color: "#333", fontSize: "24px" }}>JB 금융 도우미</h2>
+        <p style={{ margin: "0 0 20px 0", color: "#666", fontSize: "14px" }}>운영자용 상담 테스트 화면 로그인</p>
+        
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: "bold", color: "#555" }}>이메일</label>
+          <input 
+            type="email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            required 
+            style={{
+              width: "100%",
+              padding: "10px",
+              boxSizing: "border-box",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              fontSize: "15px"
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "20px" }}>
+          <label style={{ display: "block", marginBottom: "5px", fontSize: "13px", fontWeight: "bold", color: "#555" }}>비밀번호</label>
+          <input 
+            type="password" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            required 
+            style={{
+              width: "100%",
+              padding: "10px",
+              boxSizing: "border-box",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              fontSize: "15px"
+            }}
+          />
+        </div>
+
+        {error && (
+          <div style={{
+            backgroundColor: "#fff0f0",
+            color: "#d93025",
+            padding: "10px",
+            borderRadius: "6px",
+            fontSize: "13px",
+            marginBottom: "15px",
+            lineHeight: "1.4"
+          }}>
+            {error}
+          </div>
+        )}
+
+        <button 
+          type="submit" 
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: "12px",
+            backgroundColor: "#0A31A8",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            opacity: loading ? 0.7 : 1
+          }}
+        >
+          {loading ? "로그인 중..." : "로그인"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function WebappContainer() {
+  const [token, setToken] = useState(() => localStorage.getItem("jbwm_operator_token"));
+
+  if (!token) {
+    return <OperatorLogin onLoginSuccess={(newToken) => setToken(newToken)} />;
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("jbwm_operator_token");
+    setToken(null);
+  };
+
+  return (
+    <>
+      <div style={{ position: "fixed", top: 10, right: 10, zIndex: 9999 }}>
+        <button 
+          onClick={handleLogout}
+          style={{
+            padding: "6px 12px",
+            backgroundColor: "#dc3545",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "12px",
+            fontWeight: "bold"
+          }}
+        >
+          로그아웃
+        </button>
+      </div>
+      {IS_DEV_PAGE ? <DevApp /> : <App />}
+    </>
+  );
+}
+
+createRoot(document.getElementById("root")).render(<WebappContainer />);
