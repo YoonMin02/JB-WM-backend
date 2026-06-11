@@ -31,6 +31,52 @@ ActionKind = Literal[
 ]
 
 
+class PlanStrategy(BaseModel):
+    """High-level direction before executable proposals are created."""
+
+    title: str = ""
+    objective: str = ""
+    priority_order: list[PrimaryNeed] = Field(default_factory=list)
+    rationale: str = ""
+    risk_controls: list[str] = Field(default_factory=list)
+
+
+ExecutionAction = Literal[
+    "sell",
+    "buy",
+    "move_to_cash",
+    "create_report",
+    "review",
+    "request",
+    "notify",
+    "book",
+    "none",
+]
+
+
+class ExecutionStep(BaseModel):
+    """Customer-readable, executable preview for one proposal."""
+
+    action: ExecutionAction
+    target: str
+    amount_krw: int | None = None
+    current_value: str | None = None
+    target_value: str | None = None
+    reason: str
+    requires_customer_approval: bool = False
+
+
+class ExecutionParams(BaseModel):
+    """Machine-readable execution hints consumed by code-owned executors."""
+
+    target_high_risk_weight: float | None = None
+    target_low_risk_weight: float | None = None
+    liquidity_buffer_krw: int | None = None
+    insurance_review_reason: str | None = None
+    report_focus: str | None = None
+    notes: str | None = None
+
+
 class NeedAssessment(BaseModel):
     """Integrated need assessment for one scoped customer signal."""
 
@@ -72,11 +118,15 @@ class ActionProposalSchema(BaseModel):
     kind: ActionKind
     summary: str
     has_external_effect: bool = False
+    execution_summary: str = ""
+    execution_steps: list[ExecutionStep] = Field(default_factory=list)
+    execution_params: ExecutionParams = Field(default_factory=ExecutionParams)
     params: dict[str, Any] = Field(default_factory=dict)
     rationale: str = ""
 
 
 class Plan(BaseModel):
+    strategy: PlanStrategy | None = None
     proposals: list[ActionProposalSchema] = Field(default_factory=list)
     explanation: str = ""
     assessment: NeedAssessment | None = None

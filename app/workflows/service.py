@@ -21,8 +21,8 @@ from app.models.agent import ActionExecution, ActionProposal, AgentEvent, AgentM
 from app.models.customer import Customer
 from app.models.workflow import AgentJob, AgentThread, DataSnapshot
 from app.security.scope import CustomerScope, require_scope_access, scope_digest
-from app.state_machine.states import State, allowed_actions
 from app.workflows.wm_graph import get_workflow_graph
+from app.workflows.session_state import SessionState, allowed_actions
 
 TENANT_ID = "jbwm"
 
@@ -41,11 +41,12 @@ def create_or_reuse_thread(
     require_scope_access(principal, customer_id)
 
     if not force_new:
-        existing = db.exec(
+        active_threads = db.exec(
             select(AgentThread)
             .where(AgentThread.customer_id == customer_id, AgentThread.status == "active")
             .order_by(AgentThread.created_at.desc())
-        ).first()
+        ).all()
+        existing = _pick_reusable_thread(db, active_threads)
         if existing is not None:
             if settings.app_env in {"local", "dev"} and not _has_graph_checkpoint(existing, db, principal):
                 existing.status = "stale"
@@ -54,7 +55,7 @@ def create_or_reuse_thread(
             else:
                 return serialize_thread(db, existing)
 
-    session = AgentSession(customer_id=customer_id, state=State.MONITORING)
+    session = AgentSession(customer_id=customer_id, state=SessionState.MONITORING)
     db.add(session)
     db.commit()
     db.refresh(session)
@@ -78,6 +79,16 @@ def create_or_reuse_thread(
     return serialize_thread(db, thread)
 
 
+def _pick_reusable_thread(db: Session, threads: list[AgentThread]) -> AgentThread | None:
+    """Prefer an unresolved approval thread over a newer idle thread."""
+
+    for thread in threads:
+        session = db.get(AgentSession, thread.agent_session_id)
+        if session and session.state == SessionState.USER_APPROVAL:
+            return thread
+    return threads[0] if threads else None
+
+
 def trigger_event(
     db: Session,
     *,
@@ -89,9 +100,9 @@ def trigger_event(
     """Run a workflow from a manual/external signal until done or interrupted."""
 
     thread, session = resolve_thread(db, graph_thread_id, principal)
-    if session.state not in {State.MONITORING, State.USER_APPROVAL}:
+    if session.state not in {SessionState.MONITORING, SessionState.USER_APPROVAL}:
         raise HTTPException(409, f"신호를 받을 수 없는 세션 상태입니다: {session.state}")
-    if session.state == State.USER_APPROVAL:
+    if session.state == SessionState.USER_APPROVAL:
         raise HTTPException(409, "승인 대기 중에는 먼저 approve/reject/revise를 처리해야 합니다.")
 
     scope = _scope_for(thread)
@@ -118,9 +129,9 @@ def stream_event(
     """Stream a workflow run as node-level server-sent events."""
 
     thread, session = resolve_thread(db, graph_thread_id, principal)
-    if session.state not in {State.MONITORING, State.USER_APPROVAL}:
+    if session.state not in {SessionState.MONITORING, SessionState.USER_APPROVAL}:
         raise HTTPException(409, f"신호를 받을 수 없는 세션 상태입니다: {session.state}")
-    if session.state == State.USER_APPROVAL:
+    if session.state == SessionState.USER_APPROVAL:
         raise HTTPException(409, "승인 대기 중에는 먼저 approve/reject/revise를 처리해야 합니다.")
 
     scope = _scope_for(thread)
@@ -146,7 +157,7 @@ def submit_decision(
     """Resume the workflow at the LangGraph approval interrupt."""
 
     thread, session = resolve_thread(db, graph_thread_id, principal)
-    if session.state != State.USER_APPROVAL or not session.pending_proposal_id:
+    if session.state != SessionState.USER_APPROVAL or not session.pending_proposal_id:
         raise HTTPException(409, "승인 대기 중인 제안이 없습니다.")
     target_proposal_id = proposal_id or session.pending_proposal_id
     if target_proposal_id != session.pending_proposal_id:
@@ -172,7 +183,7 @@ def stream_decision(
     """Stream a resumed approval decision run as node-level SSE payloads."""
 
     thread, session = resolve_thread(db, graph_thread_id, principal)
-    if session.state != State.USER_APPROVAL or not session.pending_proposal_id:
+    if session.state != SessionState.USER_APPROVAL or not session.pending_proposal_id:
         raise HTTPException(409, "승인 대기 중인 제안이 없습니다.")
     target_proposal_id = proposal_id or session.pending_proposal_id
     if target_proposal_id != session.pending_proposal_id:
@@ -226,7 +237,7 @@ def stream_user_message(
     """
 
     thread, session = resolve_thread(db, graph_thread_id, principal)
-    if session.state == State.USER_APPROVAL:
+    if session.state == SessionState.USER_APPROVAL:
         yield {"event": "session", "data": record_user_message(db, graph_thread_id=thread.graph_thread_id, principal=principal, text=text)}
         yield {"event": "complete", "data": serialize_thread(db, thread)}
         return
@@ -291,7 +302,7 @@ def serialize_thread(db: Session, thread: AgentThread) -> dict[str, Any]:
         "session_id": session.id,
         "customer_id": thread.customer_id,
         "state": session.state,
-        "allowed_actions": allowed_actions(State(session.state)),
+        "allowed_actions": allowed_actions(SessionState(session.state)),
         "pending_proposal": pending,
         "active_needs": session.active_needs,
         "recent_context": session.recent_context,
@@ -459,7 +470,7 @@ def _stream_graph(
             "graph_result": {
                 "stage": latest_stage,
                 "pending_proposal_id": pending.get("id") if pending else None,
-                "interrupt": final_session.get("state") == State.USER_APPROVAL,
+                "interrupt": final_session.get("state") == SessionState.USER_APPROVAL,
             },
         },
     }

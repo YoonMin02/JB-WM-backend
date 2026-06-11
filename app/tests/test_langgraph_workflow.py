@@ -45,6 +45,14 @@ def _customers(db: Session):
     return rows
 
 
+def _jwt_for_email(db: Session, email: str) -> str:
+    from app.core.auth import create_jwt
+    from app.models.auth import UserAccount
+
+    account = db.exec(select(UserAccount).where(UserAccount.email == email)).one()
+    return create_jwt(subject=account.id, role=account.role, customer_id=account.customer_id)
+
+
 def test_langgraph_event_interrupt_and_approval_resume(db: Session):
     from app.core.auth import Principal
     from app.workflows.service import create_or_reuse_thread, record_user_message, submit_decision, trigger_event
@@ -419,14 +427,15 @@ def test_execute_scoped_rechecks_ownership_policy_and_idempotency(db: Session):
 def test_workflow_routes_enforce_auth_and_pending_message_contract(db: Session, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app.core.auth import Principal, create_jwt
+    from app.api.deps import db_session
+    from app.core.auth import Principal
     from app.core.config import settings
     from app.main import app
     from app.workflows.service import create_or_reuse_thread, trigger_event
 
     first, second = _customers(db)[:2]
     owner = Principal(subject="owner", role="customer", customer_id=first.id)
-    other_token = create_jwt(subject="other", role="customer", customer_id=second.id)
+    other_token = _jwt_for_email(db, "customer02@jbwm.local")
     created = create_or_reuse_thread(db, customer_id=first.id, principal=owner, force_new=True)
     pending = trigger_event(
         db,
@@ -436,6 +445,14 @@ def test_workflow_routes_enforce_auth_and_pending_message_contract(db: Session, 
     )
     pending_id = pending["pending_proposal"]["id"]
 
+    bind = db.get_bind()
+    db.close()
+
+    def override_db_session():
+        with Session(bind) as route_db:
+            yield route_db
+
+    app.dependency_overrides[db_session] = override_db_session
     client = TestClient(app)
     blocked = client.get(
         f"/workflow-sessions/{created['thread_id']}",
@@ -503,12 +520,14 @@ def test_workflow_routes_enforce_auth_and_pending_message_contract(db: Session, 
     no_auth = client.get("/customers")
     assert no_auth.status_code == 401
     monkeypatch.setattr(settings, "app_env", "local")
+    app.dependency_overrides.clear()
 
 
 def test_debug_endpoint_returns_graph_and_agent_artifacts(db: Session, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app.core.auth import Principal, create_jwt
+    from app.api.deps import db_session
+    from app.core.auth import Principal
     from app.core.config import settings
     from app.main import app
     from app.workflows.service import create_or_reuse_thread, trigger_event
@@ -522,7 +541,16 @@ def test_debug_endpoint_returns_graph_and_agent_artifacts(db: Session, monkeypat
         principal=principal,
         payload={"kind": "portfolio_loss"},
     )
+    operator_token = _jwt_for_email(db, "operator@jbwm.local")
 
+    bind = db.get_bind()
+    db.close()
+
+    def override_db_session():
+        with Session(bind) as route_db:
+            yield route_db
+
+    app.dependency_overrides[db_session] = override_db_session
     client = TestClient(app)
     debug = client.get(f"/workflow-sessions/{created['thread_id']}/debug")
     assert debug.status_code == 200
@@ -533,13 +561,13 @@ def test_debug_endpoint_returns_graph_and_agent_artifacts(db: Session, monkeypat
     assert body["debug_snapshots"][0]["context"]
 
     monkeypatch.setattr(settings, "app_env", "prod")
-    token = create_jwt(subject="local-dev", role="operator")
     blocked = client.get(
         f"/workflow-sessions/{created['thread_id']}/debug",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {operator_token}"},
     )
     assert blocked.status_code == 404
     monkeypatch.setattr(settings, "app_env", "local")
+    app.dependency_overrides.clear()
 
 
 def _assert_no_forbidden_keys(value):

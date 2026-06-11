@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import customers, health, privacy, proposals, sessions, workflows
+from app.api.routes import auth, customers, health, privacy, push, workflows
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.logging import configure_logging, logger
@@ -34,10 +34,10 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(customers.router)
-app.include_router(sessions.router)
-app.include_router(proposals.router)
 app.include_router(privacy.router)
+app.include_router(push.router)
 app.include_router(workflows.router)
 
 
@@ -47,5 +47,4 @@ def root() -> dict:
         "service": settings.app_name,
         "workflow": "langgraph",
         "agent_job_mode": settings.agent_job_mode,
-        "legacy_reasoner": settings.reasoner,
     }

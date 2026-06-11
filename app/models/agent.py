@@ -13,7 +13,7 @@ from app.models.base import new_uuid, utcnow
 class AgentSession(SQLModel, table=True):
     id: str = Field(default_factory=new_uuid, primary_key=True)
     customer_id: str = Field(foreign_key="customer.id", index=True)
-    state: str = "Monitoring"  # 03_STATE_MACHINE 상태값
+    state: str = "Monitoring"  # Customer-facing workflow state
     active_needs: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     pending_proposal_id: str | None = None
     recent_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

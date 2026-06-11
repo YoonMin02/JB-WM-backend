@@ -12,6 +12,8 @@ from pathlib import Path
 from sqlmodel import Session, select
 
 from app.core.database import engine
+from app.core.auth import hash_password
+from app.models.auth import UserAccount
 from app.models.customer import Customer
 from app.models.finance import (
     AccountBalance,
@@ -38,6 +40,7 @@ def seed_if_empty() -> str | None:
         existing = db.exec(select(Customer)).first()
         if existing:
             _seed_additional_customers(db)
+            _seed_demo_accounts(db)
             return existing.id
 
         c = Customer(name="김영자", birth_date=date(1958, 3, 12), age_band="65-69", locale="ko")
@@ -222,7 +225,7 @@ def seed_if_empty() -> str | None:
             )
         )
 
-        # 통계 시드 (분류 ② — 근거 앵커. 실제 출처는 STATS_SOURCES)
+        # 통계 시드 (분류 ② — 근거 앵커)
         db.add_all([
             PopulationStat(age_band="65-69", metric="avg_net_assets",
                            value={"krw": 250_000_000}, source="KOSIS 가계금융복지조사", as_of="2024"),
@@ -233,7 +236,46 @@ def seed_if_empty() -> str | None:
         ])
         db.commit()
         _seed_additional_customers(db)
+        _seed_demo_accounts(db)
         return c.id
+
+
+def _seed_demo_accounts(db: Session) -> None:
+    """Create deterministic demo login accounts for operator and seeded customers."""
+
+    operator = db.exec(select(UserAccount).where(UserAccount.email == "operator@jbwm.local")).first()
+    if operator is None:
+        operator = UserAccount(
+            email="operator@jbwm.local",
+            password_hash=hash_password("operator1234"),
+            role="operator",
+            customer_id=None,
+        )
+    else:
+        operator.password_hash = hash_password("operator1234")
+        operator.role = "operator"
+        operator.customer_id = None
+        operator.active = True
+    db.add(operator)
+
+    customers = db.exec(select(Customer).order_by(Customer.created_at)).all()
+    for idx, customer in enumerate(customers, start=1):
+        email = f"customer{idx:02d}@jbwm.local"
+        account = db.exec(select(UserAccount).where(UserAccount.email == email)).first()
+        if account is None:
+            account = UserAccount(
+                email=email,
+                password_hash=hash_password("customer1234"),
+                role="customer",
+                customer_id=customer.id,
+            )
+        else:
+            account.password_hash = hash_password("customer1234")
+            account.role = "customer"
+            account.customer_id = customer.id
+            account.active = True
+        db.add(account)
+    db.commit()
 
 
 def _seed_additional_customers(db: Session) -> None:

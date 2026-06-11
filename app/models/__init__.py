@@ -10,6 +10,7 @@ from app.models.agent import (
     PlanRecord,
     Signal,
 )
+from app.models.auth import PushSubscription, UserAccount
 from app.models.customer import Customer
 from app.models.finance import (
     AccountBalance,
@@ -30,6 +31,8 @@ from app.models.workflow import AgentJob, AgentThread, DataSnapshot
 
 __all__ = [
     "Customer",
+    "UserAccount",
+    "PushSubscription",
     "HealthRecord",
     "HealthEvent",
     "MedicalDocument",

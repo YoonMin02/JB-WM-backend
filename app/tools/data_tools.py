@@ -1,8 +1,8 @@
-"""읽기 전용 데이터 도구 (분류 ① 고객 개인 데이터).
+"""읽기 전용 고객 데이터 도구.
 
-reasoner에 주입할 컨텍스트를 구성한다. 모두 customer_id로 스코핑된 읽기 전용.
-실제 배포에서는 이 함수들이 backend ContextBuilder를 통해 LLM context pack에 주입된다.
-실행 동사(book_*/submit_*/transfer_*)는 여기에 존재하지 않는다.
+Agent job에 전달할 redacted context의 원천 데이터를 구성한다. 모두 customer_id로
+스코핑된 읽기 전용이며, 실행 동사(book_*/submit_*/transfer_*)는 여기에 존재하지
+않는다.
 """
 from __future__ import annotations
 
@@ -259,7 +259,7 @@ def get_population_stat(db: Session, age_band: str, metric: str) -> dict:
 
 
 def build_context(db: Session, customer_id: str) -> dict:
-    """reasoner 주입용 읽기 전용 컨텍스트 묶음 (건강·자산 통합)."""
+    """Agent job context 원천이 되는 읽기 전용 데이터 묶음."""
     profile = get_customer_profile(db, customer_id)
     age_band = profile.get("age_band", "")
     # 해당 연령대 통계 일부를 근거로 동봉 (분류 ②)

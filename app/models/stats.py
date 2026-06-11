@@ -1,7 +1,4 @@
-"""통계/기준 데이터 (분류 ②) — 참고 데이터, per-customer 아님.
-
-파라미터 쿼리 도구 get_population_stat로 노출 (06_TOOL_CONTRACTS, STATS_SOURCES).
-"""
+"""Population/statistical baseline data."""
 from __future__ import annotations
 
 from typing import Any

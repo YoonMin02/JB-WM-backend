@@ -30,6 +30,7 @@ from app.policy.engine import evaluate
 from app.signals.detectors import detect_signal
 from app.signals.schemas import SignalEnvelope
 from app.workflows.state import WMGraphState
+from app.workflows.session_state import SessionState
 
 
 def data_refresh(state: WMGraphState, config: RunnableConfig) -> dict[str, Any]:
@@ -170,10 +171,10 @@ def policy_check(state: WMGraphState, config: RunnableConfig) -> dict[str, Any]:
 
     if pending is not None:
         session.pending_proposal_id = pending.id
-        session.state = "UserApproval"
+        session.state = SessionState.USER_APPROVAL
     else:
         session.pending_proposal_id = None
-        session.state = "Monitoring"
+        session.state = SessionState.MONITORING
     session.active_needs = {"primary_need": assessment.primary_need, "needs": _need_levels(assessment)}
     session.recent_context = {
         "assessment": assessment.model_dump(),
@@ -280,7 +281,7 @@ def execute_action(state: WMGraphState, config: RunnableConfig) -> dict[str, Any
 
     next_pending = _next_pending_proposal(db, session)
     session.pending_proposal_id = next_pending.id if next_pending is not None else None
-    session.state = "UserApproval" if next_pending is not None else "Monitoring"
+    session.state = SessionState.USER_APPROVAL if next_pending is not None else SessionState.MONITORING
     session.updated_at = utcnow()
     db.add(session)
     db.commit()
@@ -310,7 +311,7 @@ def update_memory(state: WMGraphState, config: RunnableConfig) -> dict[str, Any]
     memory.updated_at = utcnow()
     session.updated_at = utcnow()
     if not session.pending_proposal_id:
-        session.state = "Monitoring"
+        session.state = SessionState.MONITORING
         session.active_needs = {}
     db.add(memory)
     db.add(session)
@@ -398,12 +399,13 @@ def _record_assessment(db: Session, session: AgentSession, assessment: NeedAsses
 def _persist_plan(db: Session, session: AgentSession, plan: Plan) -> list[ActionProposal]:
     proposals: list[ActionProposal] = []
     for item in plan.proposals:
+        params = _proposal_params(item)
         proposal = ActionProposal(
             session_id=session.id,
             kind=item.kind,
             summary=item.summary,
             has_external_effect=item.has_external_effect,
-            params=item.params,
+            params=params,
             rationale=item.rationale,
         )
         db.add(proposal)
@@ -412,6 +414,20 @@ def _persist_plan(db: Session, session: AgentSession, plan: Plan) -> list[Action
     for proposal in proposals:
         db.refresh(proposal)
     return proposals
+
+
+def _proposal_params(item: ActionProposalSchema) -> dict[str, Any]:
+    params = dict(item.params or {})
+    execution_params = item.execution_params.model_dump(exclude_none=True)
+    if item.execution_summary:
+        params["execution_summary"] = item.execution_summary
+    if item.execution_steps:
+        params["execution_steps"] = [step.model_dump() for step in item.execution_steps]
+    if execution_params:
+        params["execution_params"] = execution_params
+        for key, value in execution_params.items():
+            params.setdefault(key, value)
+    return params
 
 
 def _record_plan(db: Session, session: AgentSession, plan: Plan, proposals: list[ActionProposal], message: str) -> None:

@@ -24,15 +24,6 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me"
     privacy_sensitive_retention_days: int = 365
 
-    # Reasoning
-    # 'stub' = 결정론적 가짜(테스트/데모), 'pydantic_ai' = PydanticAI + Codex SDK transport
-    reasoner: Literal["stub", "pydantic_ai"] = "stub"
-    codex_model: str = "gpt-5.4-mini"
-    codex_model_reasoning_effort: str = "low"
-    # 호출 횟수 가드 (쿼터 보호 — 넉넉하게). 0 = 무제한
-    llm_max_calls_per_minute: int = 30
-    llm_max_calls_total: int = 500
-
     # Storage
     file_storage_driver: str = "local"
     local_storage_path: str = "./storage"

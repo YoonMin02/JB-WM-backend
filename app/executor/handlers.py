@@ -1,7 +1,6 @@
-"""Executor — 승인/자동 액션의 실제 실행. LLM을 거치지 않는다.
+"""Executor — 승인/자동 액션의 실제 실행. Agent job을 거치지 않는다.
 
 실행 권한(자격증명·외부 API)은 여기에만 존재한다. MVP는 전부 mock.
-(docs/07_ACTION_EXECUTION)
 """
 from __future__ import annotations
 
@@ -87,7 +86,14 @@ def _apply_mock_rebalance(db: Session, proposal: ActionProposal) -> dict:
     if not holdings or total <= 0:
         return {"proposal": "리밸런싱 대상 보유자산 없음", "applied": False}
 
-    target_high = float(proposal.params.get("target_high_risk_weight", 0.45))
+    execution_params = proposal.params.get("execution_params") if isinstance(proposal.params, dict) else {}
+    if not isinstance(execution_params, dict):
+        execution_params = {}
+    target_high = float(
+        proposal.params.get("target_high_risk_weight")
+        or execution_params.get("target_high_risk_weight")
+        or 0.45
+    )
     target_low = max(0.0, 1.0 - target_high)
     high_holdings = [h for h in holdings if h.risk_grade == "high"]
     low_holdings = [h for h in holdings if h.risk_grade != "high"]
@@ -111,6 +117,8 @@ def _apply_mock_rebalance(db: Session, proposal: ActionProposal) -> dict:
     return {
         "proposal": "방어형 리밸런싱 적용 (mock)",
         "applied": True,
+        "execution_summary": proposal.params.get("execution_summary"),
+        "execution_steps": proposal.params.get("execution_steps", []),
         "target_high_risk_weight": target_high,
         "target_low_risk_weight": target_low,
     }
@@ -124,9 +132,24 @@ def _handle(db: Session, proposal: ActionProposal) -> ActionExecution:
     if kind == "review_insurance":
         return _exec_record(proposal.id, "InsuranceReviewMockHandler", _apply_mock_insurance_review(db, proposal))
     if kind == "report":
-        return _exec_record(proposal.id, "ReportHandler", {"report": proposal.summary})
+        return _exec_record(
+            proposal.id,
+            "ReportHandler",
+            {
+                "report": proposal.summary,
+                "execution_summary": proposal.params.get("execution_summary"),
+                "execution_steps": proposal.params.get("execution_steps", []),
+            },
+        )
     if kind == "cashflow_plan":
-        return _exec_record(proposal.id, "CashflowPlanHandler", {"plan": "3개월 비상자금 플랜 (mock)"})
+        return _exec_record(
+            proposal.id,
+            "CashflowPlanHandler",
+            {
+                "plan": proposal.params.get("execution_summary") or "3개월 비상자금 플랜 (mock)",
+                "execution_steps": proposal.params.get("execution_steps", []),
+            },
+        )
     if kind == "rebalance_portfolio":
         return _exec_record(proposal.id, "RebalanceHandler", _apply_mock_rebalance(db, proposal))
     if kind == "book_hospital":

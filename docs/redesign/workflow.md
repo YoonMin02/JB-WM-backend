@@ -22,6 +22,50 @@ Monitoring
   -> Monitoring
 ```
 
+## LangGraph FSM 다이어그램
+
+JB-WM의 상태 흐름은 아래 LangGraph node graph를 따른다. 박스 하나는 workflow
+node이며, `session.state`에 저장되는 고객 대면 상태값과 1:1로 같지는 않다.
+예를 들어 내부 node는 `PolicyCheck`까지 진행하지만 고객 화면의 세션 상태는 승인
+필요 시 `UserApproval`, 끝나면 `Monitoring`으로 정리된다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DataRefresh
+    DataRefresh --> SignalDetect
+    SignalDetect --> SignalGate
+    SignalGate --> BuildContext
+    BuildContext --> SpawnAgent
+    SpawnAgent --> ValidateOutput
+    ValidateOutput --> PolicyCheck
+
+    PolicyCheck --> ApprovalInterrupt: 승인 필요 proposal 있음
+    PolicyCheck --> VerifyResult: 승인 필요 proposal 없음
+
+    ApprovalInterrupt --> ExecuteAction: approve / reject / revise
+
+    ExecuteAction --> ApprovalInterrupt: 다음 승인 필요 proposal 있음
+    ExecuteAction --> VerifyResult: 더 이상 대기 proposal 없음
+
+    VerifyResult --> UpdateMemory
+    UpdateMemory --> [*]
+```
+
+고객 관점의 상태는 더 작게 표현한다.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Monitoring
+    Monitoring --> UserApproval: 승인 필요 proposal 생성
+    UserApproval --> UserApproval: 여러 proposal 중 다음 승인 대기
+    UserApproval --> Monitoring: 승인/거절/수정 처리 완료
+    Monitoring --> Monitoring: 자동 처리 또는 조치 없음
+```
+
+이 구조는 FSM의 성격을 갖지만, 상태 전이표를 직접 관리하지 않는다. 상태 흐름의
+기준은 LangGraph node/edge이며, 고객 대면 상태는 workflow 결과를 사용자 언어로
+요약한 표현이다.
+
 각 단계는 한 덩어리의 "에이전트 작업"이 아니다. 코드가 먼저 데이터를 모으고
 이벤트를 분류한 뒤, 그 결과를 단일 고객 context로 묶어 agent job에 넘긴다. agent는
 제안만 만들고, 정책/승인/실행/확인은 코드가 이어서 처리한다.
