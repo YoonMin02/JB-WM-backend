@@ -399,12 +399,13 @@ def _record_assessment(db: Session, session: AgentSession, assessment: NeedAsses
 def _persist_plan(db: Session, session: AgentSession, plan: Plan) -> list[ActionProposal]:
     proposals: list[ActionProposal] = []
     for item in plan.proposals:
+        params = _proposal_params(item)
         proposal = ActionProposal(
             session_id=session.id,
             kind=item.kind,
             summary=item.summary,
             has_external_effect=item.has_external_effect,
-            params=item.params,
+            params=params,
             rationale=item.rationale,
         )
         db.add(proposal)
@@ -413,6 +414,20 @@ def _persist_plan(db: Session, session: AgentSession, plan: Plan) -> list[Action
     for proposal in proposals:
         db.refresh(proposal)
     return proposals
+
+
+def _proposal_params(item: ActionProposalSchema) -> dict[str, Any]:
+    params = dict(item.params or {})
+    execution_params = item.execution_params.model_dump(exclude_none=True)
+    if item.execution_summary:
+        params["execution_summary"] = item.execution_summary
+    if item.execution_steps:
+        params["execution_steps"] = [step.model_dump() for step in item.execution_steps]
+    if execution_params:
+        params["execution_params"] = execution_params
+        for key, value in execution_params.items():
+            params.setdefault(key, value)
+    return params
 
 
 def _record_plan(db: Session, session: AgentSession, plan: Plan, proposals: list[ActionProposal], message: str) -> None:
