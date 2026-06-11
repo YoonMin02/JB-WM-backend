@@ -8,8 +8,7 @@
   "steps": {
     "install": {
       "commands": [
-        "pip install uv",
-        "uv sync --frozen",
+        "...",
         "npm install -g @openai/codex@0.135.0"
       ]
     }
