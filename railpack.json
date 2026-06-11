@@ -9,11 +9,14 @@
     "install": {
       "commands": [
         "...",
-        "npm install -g @openai/codex@0.135.0"
+        "npm install @openai/codex@0.135.0"
       ]
     }
   },
   "deploy": {
+    "paths": [
+      "/app/node_modules/.bin"
+    ],
     "startCommand": "uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT"
   }
 }

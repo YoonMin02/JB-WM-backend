@@ -1,11 +1,12 @@
 [phases.setup]
 nixPkgs = ["python312", "nodejs_22"]
+paths = ["/app/node_modules/.bin"]
 
 [phases.install]
 cmds = [
   "pip install uv",
   "uv sync --frozen",
-  "npm install -g @openai/codex@0.135.0"
+  "npm install @openai/codex@0.135.0"
 ]
 
 [start]
